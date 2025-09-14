@@ -2,6 +2,11 @@
 
 AI를 활용한 네일 아트 디자인 생성 애플리케이션입니다. Google OAuth 인증, 사용자별 이미지 저장, 구독 기반 요금제를 지원합니다.
 
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue?style=flat-square&logo=github)](https://github.com/woolfie1101/AI-NailArt-generator_v3)
+[![React](https://img.shields.io/badge/React-18+-blue?style=flat-square&logo=react)](https://reactjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15+-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Database-green?style=flat-square&logo=supabase)](https://supabase.com/)
+
 ## 프로젝트 구조
 
 ```

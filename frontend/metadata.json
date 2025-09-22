@@ -1,0 +1,5 @@
+{
+  "name": "AI Nail Art Generator v.2",
+  "description": "An application that generates custom nail art onto a user's photo using a style image and an optional text prompt.",
+  "requestFramePermissions": []
+}

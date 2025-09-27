@@ -12,7 +12,7 @@ A combined roadmap for the image library and social feed features. Update checkb
    - Set bucket permissions + signed URL helpers.
 
 ## Phase 2 – Backend Services
-3. [ ] **Generation & Upload Enhancements**
+3. [x] **Generation & Upload Enhancements**
    - Auto-create folder record/prefix on first render.
    - Save JPEGs to Storage and corresponding DB entries (folder/image).
 4. [ ] **Library CRUD APIs**

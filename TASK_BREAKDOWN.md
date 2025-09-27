@@ -18,7 +18,7 @@ A combined roadmap for the image library and social feed features. Update checkb
 4. [x] **Library CRUD APIs**
    - Endpoints to list/filter/sort folders and images.
    - Edit name/tag/favorite; delete image/folder (cascade cleanup).
-5. [ ] **Social Feed APIs**
+5. [x] **Social Feed APIs**
    - Post creation from library images, captions, tags, privacy settings.
    - Like/comment endpoints, follow/unfollow, feed retrieval (public/private).
 

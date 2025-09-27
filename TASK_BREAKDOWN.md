@@ -3,7 +3,7 @@
 A combined roadmap for the image library and social feed features. Update checkboxes as tasks complete.
 
 ## Phase 1 – Foundations
-1. [ ] **Design & Data Modeling**
+1. [x] **Design & Data Modeling**
    - Wireframe Library list, Folder detail, and Social Feed screens.
    - Extend Supabase schema for `generation_groups`, `generation_assets`, and `social_posts` (with privacy flags, captions, like/comment counts, etc.).
    - Define follow relationships and feed visibility rules.

@@ -1,6 +1,6 @@
-# Upcoming Image Library Feature Overview
+# Upcoming Feature Overview
 
-> **Goal:** Give users a persistent “My Library” space where every AI-generated nail-art image is stored, organized, and easy to rediscover.
+> **Goal:** Build a social-ready archive and discovery layer for AI nail-art creations.
 
 ## 1. Automatic Archiving to Supabase
 - On the first successful generation, create a new folder entry and storage prefix automatically.
@@ -9,36 +9,36 @@
 - Default naming: `YYYY-MM-DD_<counter>` for folders and image files.
 
 ## 2. Folder-Level Organization
-- Each folder stores metadata:
-  - Creation timestamp (used for default naming and sorting).
-  - Folder name (editable) and optional description.
-  - Tag list (e.g., `#봄네일`, `#glitter`) to capture theme, season, or client.
-  - Favorite flag so artists can pin their best sets.
-- Tag edits, name changes, or deletes should stay synced between database and storage.
+- Each folder stores metadata (timestamp, editable name, description, tags, favorite flag).
+- Tag edits, name changes, and deletes keep the storage structure in sync.
 
 ## 3. Image Library Page
-- A dedicated page lists all folders the user has created.
-- Core UX capabilities:
-  - **Filter** by creation date range, folder name search, or tag selection.
-  - **Sort** by newest/oldest, alphabetical folder name, or favorites first.
-  - **Favorite toggle** directly in the list.
-- Each folder card shows preview thumbnails, tag chips, creation info, and quick actions.
+- Dedicated page listing all folders the user has created.
+- Filter by date range, folder name, or tags; sort by newest, oldest, name, or favorites.
+- Toggle favorites inline; folder cards show thumbnails, tags, and quick actions.
 
 ## 4. Folder Detail View
-- Clicking a folder opens a detail screen with every saved image in that group.
-- For each image:
-  - Show name, timestamp, tags (editable), and download button.
-  - Allow deletion of an individual render.
-- Inline rename/tag editing for both the folder and its child images.
+- Show every image inside a folder with metadata, download, edit, and delete options.
+- Inline editing for folder/image names and tags.
 
 ## 5. Deletion & Cleanup
-- Users can delete a folder; all contained images and their storage objects are removed in the same action.
-- Individual image deletes are also supported.
-- Backend must ensure there are no orphaned records or storage files after deletions.
+- Folder deletions cascade to contained images and storage objects.
+- Individual image deletions remove both storage files and DB rows.
 
 ## 6. Tag-Driven Discovery
-- Tags applied at folder or image level become a central discovery tool.
-- The Library page supports filtering by tags; consider multi-select chips or search-as-you-type.
-- AI-generated tags from the existing generator can seed folders automatically.
+- Tags applied at folder or image level power search/filter UI.
+- AI-generated tags seed folder metadata by default.
+
+## 7. Social Feed (“Nailgram”)
+- Each user gets a profile feed that showcases selected nail-art images.
+- Feeds can be public, private, or mutual-follow only (“secret feed”).
+- Use Instagram-style interactions: post upload (from saved library images), captions, likes, comments, follow/unfollow, share, etc.
+- Users can choose which archived images to publish to their feed.
+
+## 8. Bottom Navigation
+- Add a persistent bottom nav (mobile-first) with three tabs:
+  1. **Home** – browse global/community nail feeds.
+  2. **Create** – open the existing AI generator.
+  3. **Library** – open the personal archive/library page.
 
 _Last updated: 2025-09-27_

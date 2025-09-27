@@ -1,30 +1,46 @@
-# Image Library Delivery Plan
+# Feature Delivery Plan
 
-Ordered tasks for shipping the new archive experience. Update checkboxes as you finish each step.
+A combined roadmap for the image library and social feed features. Update checkboxes as tasks complete.
 
+## Phase 1 – Foundations
 1. [ ] **Design & Data Modeling**
-   - Finalize UI wireframes for Library list and folder detail pages.
-   - Extend Supabase schema with `generation_groups` (folders) and `generation_assets` (images) tables; define tag arrays, favorite flags, timestamps, and cascade rules.
-2. [ ] **Supabase Storage Configuration**
-   - Create Storage buckets/folder structure for grouped images.
-   - Set up service-role policies and signed URL helpers for downloads.
-3. [ ] **Backend API Enhancements**
-   - When the first image in a session is generated, create a new folder record + storage prefix automatically.
-   - Update generation/upload endpoints to write JPEGs to Storage and create DB records tied to the active folder.
-   - Add CRUD routes for folders/images (rename, retag, favorite toggle, delete).
-   - Implement cascading delete logic and orphan cleanup utilities.
-4. [ ] **AI Tag Integration**
-   - Pipe existing AI tag suggestions into folder metadata by default.
-   - Expose endpoints to add/remove tags manually.
-5. [ ] **Frontend Library Page**
-   - Build the folder listing view with filtering (date, name, tags) and sorting controls.
-   - Surface favorite toggles and quick actions per folder.
-6. [ ] **Folder Detail UI**
-   - Show all images per folder with thumbnails, metadata editing, download, and delete buttons.
-   - Reuse the tag editor component for folders/images.
-7. [ ] **Testing & Polish**
-   - Write integration tests for new APIs and storage cleanup.
-   - Add frontend regression tests for filtering, sorting, and destructive actions.
-   - Verify localization strings, empty states, and error handling.
+   - Wireframe Library list, Folder detail, and Social Feed screens.
+   - Extend Supabase schema for `generation_groups`, `generation_assets`, and `social_posts` (with privacy flags, captions, like/comment counts, etc.).
+   - Define follow relationships and feed visibility rules.
+2. [ ] **Supabase Storage & Access Policy**
+   - Create Storage structure for grouped images.
+   - Set bucket permissions + signed URL helpers.
+
+## Phase 2 – Backend Services
+3. [ ] **Generation & Upload Enhancements**
+   - Auto-create folder record/prefix on first render.
+   - Save JPEGs to Storage and corresponding DB entries (folder/image).
+4. [ ] **Library CRUD APIs**
+   - Endpoints to list/filter/sort folders and images.
+   - Edit name/tag/favorite; delete image/folder (cascade cleanup).
+5. [ ] **Social Feed APIs**
+   - Post creation from library images, captions, tags, privacy settings.
+   - Like/comment endpoints, follow/unfollow, feed retrieval (public/private).
+
+## Phase 3 – Frontend Implementation
+6. [ ] **Bottom Navigation Integration**
+   - Add mobile-first nav with Home / Create / Library tabs.
+   - Home opens community feed; Create launches existing generator; Library opens archive view.
+7. [ ] **Library UI**
+   - Port `ui-library` components into the app, connect to real data.
+   - Filtering, sorting, tag editing, favorites, downloads.
+8. [ ] **Folder Detail UI**
+   - Display folder images with edit/delete/download actions.
+   - Allow publishing selected images to social feed.
+9. [ ] **Social Feed UI**
+   - Build profile feed, community feed, post detail modals, follow states.
+   - Include privacy indicators (public/private/mutual).
+
+## Phase 4 – Polish & QA
+10. [ ] **End-to-End Testing**
+    - Integration tests for storage cleanup, feed visibility, and permissions.
+    - Frontend regression tests (navigation, filters, CRUD, social interactions).
+11. [ ] **Localization & Accessibility**
+    - Translate new UI copy (KO/EN) and ensure keyboard/screen reader support.
 
 _Last updated: 2025-09-27_

@@ -7,7 +7,7 @@ A combined roadmap for the image library and social feed features. Update checkb
    - Wireframe Library list, Folder detail, and Social Feed screens.
    - Extend Supabase schema for `generation_groups`, `generation_assets`, and `social_posts` (with privacy flags, captions, like/comment counts, etc.).
    - Define follow relationships and feed visibility rules.
-2. [ ] **Supabase Storage & Access Policy**
+2. [x] **Supabase Storage & Access Policy**
    - Create Storage structure for grouped images.
    - Set bucket permissions + signed URL helpers.
 

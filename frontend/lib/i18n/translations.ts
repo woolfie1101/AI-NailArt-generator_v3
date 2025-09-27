@@ -76,6 +76,13 @@ export const translations = {
     // Refine with Text
     refineTextTitle: '3. Refine with Text',
     refineTextPlaceholder: "e.g., 'add a small star on the ring finger'",
+
+    // AI Generated Tags
+    aiTagsTitle: '4. AI Generated Tags',
+    aiTagsDesc: 'Tags describing your nail art. Feel free to add, remove, or edit them.',
+    generatingTags: 'Generating tags...',
+    addTagPlaceholder: 'Add a new tag',
+    addTagButton: 'Add',
     
     // Staged Changes
     stagedChangesTitle: 'Changes to Apply:',
@@ -139,6 +146,24 @@ export const translations = {
       pricingCta: 'Unlock with Google',
       pricingLoading: 'Connecting...'
     },
+
+    // Localized Studio Content
+    colors: {
+      burgundy: 'Burgundy',
+      navyBlue: 'Navy Blue',
+      dustyRose: 'Dusty Rose',
+      emeraldGreen: 'Emerald Green',
+      lavender: 'Lavender',
+      mustardYellow: 'Mustard Yellow',
+      charcoalGray: 'Charcoal Gray',
+      teal: 'Teal',
+    },
+    styleModifiers: {
+      addGlitter: 'Add subtle glitter',
+      magneticGel: 'Add magnetic gel effect',
+      matteFinish: 'Make it matte finish',
+      chromePowder: 'Add chrome powder effect'
+    }
   },
   ko: {
     // Header
@@ -218,6 +243,13 @@ export const translations = {
     refineTextTitle: '3. 텍스트로 수정하기',
     refineTextPlaceholder: "예: '약지 손톱에 작은 별을 추가해줘'",
 
+    // AI Generated Tags
+    aiTagsTitle: '4. AI 생성 태그',
+    aiTagsDesc: '네일아트를 설명하는 태그입니다. 자유롭게 추가, 삭제, 수정하세요.',
+    generatingTags: '태그 생성 중...',
+    addTagPlaceholder: '새 태그 추가',
+    addTagButton: '추가',
+
     // Staged Changes
     stagedChangesTitle: '적용할 변경사항:',
     stagedChangesPlaceholder: '시작하려면 위에서 수정사항을 선택하세요.',
@@ -280,5 +312,23 @@ export const translations = {
       pricingCta: 'Google 로그인으로 시작',
       pricingLoading: '연결 중...'
     },
+
+    // Localized Studio Content
+    colors: {
+      burgundy: '버건디',
+      navyBlue: '네이비 블루',
+      dustyRose: '더스티 로즈',
+      emeraldGreen: '에메랄드 그린',
+      lavender: '라벤더',
+      mustardYellow: '머스타드 옐로우',
+      charcoalGray: '차콜 그레이',
+      teal: '틸',
+    },
+    styleModifiers: {
+      addGlitter: '은은한 글리터 추가',
+      magneticGel: '마그네틱 젤 효과 추가',
+      matteFinish: '매트하게 변경',
+      chromePowder: '크롬 파우더 효과 추가'
+    }
   }
 };

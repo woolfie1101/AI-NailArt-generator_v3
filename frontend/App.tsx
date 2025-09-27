@@ -2,30 +2,31 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Header from './components/Header';
 import ImageUploader from './components/ImageUploader';
 import ResultDisplay from './components/ResultDisplay';
-import { SparklesIcon } from './components/icons/SparklesIcon';
 import LandingPage from './components/LandingPage';
-import { fileToBase64 } from './utils/fileUtils';
-import { generateNailArt, extractDominantColors } from './services/geminiService';
-import type { AppState, GenerationMode, StagedChanges } from './types';
-import { AppStatus } from './types';
 import InspirationCarousel from './components/InspirationCarousel';
 import ErrorModal from './components/ErrorModal';
 import Footer from './components/Footer';
+import { SparklesIcon } from './components/icons/SparklesIcon';
+import { fileToBase64 } from './utils/fileUtils';
+import { generateNailArt, extractDominantColors, generateTagsForImage } from './services/geminiService';
+import type { AppState, GenerationMode, StagedChanges } from './types';
+import { AppStatus } from './types';
 import { useTranslations } from './hooks/useTranslations';
+import { translations } from './lib/i18n/translations';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 const AppContent: React.FC = () => {
-  const { t } = useTranslations();
-  const { user, loading } = useAuth();
+  const { t, language } = useTranslations();
+  const { user, loading: authLoading } = useAuth();
+
   const [baseImage, setBaseImage] = useState<File | null>(null);
   const [styleImage, setStyleImage] = useState<File | null>(null);
-  const [prompt, setPrompt] = useState<string>('');
+  const [prompt, setPrompt] = useState('');
   const [appState, setAppState] = useState<AppState>({ status: AppStatus.IDLE });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [isQuotaExhausted, setIsQuotaExhausted] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
-  const loadingIntervalRef = useRef<number | null>(null);
   const [generationMode, setGenerationMode] = useState<GenerationMode>('inspiration');
   const [extractedColors, setExtractedColors] = useState<string[]>([]);
   const [isExtractingColors, setIsExtractingColors] = useState(false);
@@ -35,23 +36,23 @@ const AppContent: React.FC = () => {
     textPrompt: '',
   });
   const [activeResultIndex, setActiveResultIndex] = useState(0);
+  const [tagsByResult, setTagsByResult] = useState<Record<number, { tags: string[]; isLoading: boolean }>>({});
 
-  useEffect(() => {
-    return () => {
-      if (loadingIntervalRef.current) {
-        clearInterval(loadingIntervalRef.current);
-      }
-    };
+  const loadingIntervalRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (loadingIntervalRef.current) {
+      clearInterval(loadingIntervalRef.current);
+    }
   }, []);
 
   const handleColorExtraction = useCallback(async (resultImage: string) => {
     setIsExtractingColors(true);
     setExtractedColors([]);
     try {
-      const parts = resultImage.split(',');
-      const meta = parts[0].split(':')[1].split(';')[0];
-      const base64Data = parts[1];
-      const colors = await extractDominantColors({ data: base64Data, mimeType: meta });
+      const [metaPart, base64Part] = resultImage.split(',');
+      const mimeType = metaPart.split(':')[1]?.split(';')[0] ?? 'image/png';
+      const colors = await extractDominantColors({ data: base64Part, mimeType });
       setExtractedColors(colors);
     } catch (error) {
       console.error('Failed to extract colors:', error);
@@ -60,14 +61,59 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
+  const handleTagGeneration = useCallback(async (resultImage: string, index: number) => {
+    setTagsByResult((prev) => ({
+      ...prev,
+      [index]: { tags: prev[index]?.tags ?? [], isLoading: true },
+    }));
+
+    try {
+      const [metaPart, base64Part] = resultImage.split(',');
+      const mimeType = metaPart.split(':')[1]?.split(';')[0] ?? 'image/png';
+      const tags = await generateTagsForImage({ data: base64Part, mimeType }, language);
+
+      setTagsByResult((prev) => ({
+        ...prev,
+        [index]: { tags, isLoading: false },
+      }));
+    } catch (error) {
+      console.error('Failed to generate tags:', error);
+      setTagsByResult((prev) => ({
+        ...prev,
+        [index]: { tags: prev[index]?.tags ?? [], isLoading: false },
+      }));
+    }
+  }, [language]);
+
   useEffect(() => {
-    if (appState.status === AppStatus.SUCCESS && appState.results[activeResultIndex]) {
-      handleColorExtraction(appState.results[activeResultIndex]);
-    } else {
+    if (appState.status !== AppStatus.SUCCESS) {
       setExtractedColors([]);
       setIsExtractingColors(false);
+      return;
     }
+
+    const currentResult = appState.results[activeResultIndex];
+    if (!currentResult) {
+      return;
+    }
+
+    handleColorExtraction(currentResult);
   }, [appState, activeResultIndex, handleColorExtraction]);
+
+  useEffect(() => {
+    if (appState.status !== AppStatus.SUCCESS) {
+      return;
+    }
+
+    const currentResult = appState.results[activeResultIndex];
+    if (!currentResult) {
+      return;
+    }
+
+    if (!tagsByResult[activeResultIndex]) {
+      handleTagGeneration(currentResult, activeResultIndex);
+    }
+  }, [appState, activeResultIndex, handleTagGeneration, tagsByResult]);
 
   const handleInitialGenerate = useCallback(async () => {
     if (!baseImage || !styleImage) {
@@ -77,12 +123,8 @@ const AppContent: React.FC = () => {
 
     setAppState({ status: AppStatus.LOADING });
     setExtractedColors([]);
-    const messages = [
-      t('loading1'),
-      t('loading2'),
-      t('loading3'),
-      t('loading4'),
-    ];
+
+    const messages = [t('loading1'), t('loading2'), t('loading3'), t('loading4')];
     let messageIndex = 0;
     setLoadingMessage(messages[messageIndex]);
     if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
@@ -106,6 +148,7 @@ const AppContent: React.FC = () => {
       const resultUrl = `data:image/png;base64,${generatedImageBase64}`;
       setAppState({ status: AppStatus.SUCCESS, results: [resultUrl] });
       setActiveResultIndex(0);
+      setTagsByResult({});
     } catch (error) {
       console.error(error);
       if (error instanceof Error && error.message === 'QUOTA_EXHAUSTED') {
@@ -130,15 +173,12 @@ const AppContent: React.FC = () => {
       setAppState({ status: AppStatus.ERROR, error: t('errorNoImageToRegen') });
       return;
     }
-    const baseImageToRegen = currentResults[activeResultIndex];
 
+    const baseImageToRegen = currentResults[activeResultIndex];
     setAppState({ status: AppStatus.LOADING });
     setExtractedColors([]);
-    const messages = [
-      t('regenLoading1'),
-      t('regenLoading2'),
-      t('regenLoading3'),
-    ];
+
+    const messages = [t('regenLoading1'), t('regenLoading2'), t('regenLoading3')];
     let messageIndex = 0;
     setLoadingMessage(messages[messageIndex]);
     if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
@@ -148,12 +188,11 @@ const AppContent: React.FC = () => {
     }, 2500);
 
     try {
-      const parts = baseImageToRegen.split(',');
-      const meta = parts[0].split(':')[1].split(';')[0];
-      const base64Data = parts[1];
+      const [metaPart, base64Part] = baseImageToRegen.split(',');
+      const mimeType = metaPart.split(':')[1]?.split(';')[0] ?? 'image/png';
 
       const generatedImageBase64 = await generateNailArt(
-        { data: base64Data, mimeType: meta },
+        { data: base64Part, mimeType },
         null,
         regenerationPrompt,
         true
@@ -161,8 +200,10 @@ const AppContent: React.FC = () => {
 
       const resultUrl = `data:image/png;base64,${generatedImageBase64}`;
       const newResults = [...currentResults, resultUrl];
+      const nextIndex = newResults.length - 1;
+
       setAppState({ status: AppStatus.SUCCESS, results: newResults });
-      setActiveResultIndex(newResults.length - 1);
+      setActiveResultIndex(nextIndex);
     } catch (error) {
       console.error(error);
       if (error instanceof Error && error.message === 'QUOTA_EXHAUSTED') {
@@ -183,14 +224,30 @@ const AppContent: React.FC = () => {
 
   const handleApplyStagedChanges = useCallback(() => {
     const { colorSwap, styleModifier, textPrompt } = stagedChanges;
-
     const promptParts: string[] = [];
+
     if (colorSwap) {
-      promptParts.push(`Change the color '${colorSwap.from}' to '${colorSwap.to}'.`);
+      const colorEntries = translations[language]?.colors;
+      const colorKey = colorEntries
+        ? (Object.keys(colorEntries) as Array<keyof typeof translations.en.colors>).find(
+            (key) => colorEntries[key] === colorSwap.to
+          )
+        : undefined;
+      const englishColorName = colorKey ? translations.en.colors[colorKey] : colorSwap.to;
+      promptParts.push(`Change the color '${colorSwap.from}' to '${englishColorName}'.`);
     }
+
     if (styleModifier) {
-      promptParts.push(`Apply this style effect: '${styleModifier}'.`);
+      const styleEntries = translations[language]?.styleModifiers;
+      const styleKey = styleEntries
+        ? (Object.keys(styleEntries) as Array<keyof typeof translations.en.styleModifiers>).find(
+            (key) => styleEntries[key] === styleModifier
+          )
+        : undefined;
+      const englishStyleName = styleKey ? translations.en.styleModifiers[styleKey] : styleModifier;
+      promptParts.push(`Apply this style effect: '${englishStyleName}'.`);
     }
+
     if (textPrompt.trim()) {
       promptParts.push(`Additionally, incorporate this request: "${textPrompt.trim()}".`);
     }
@@ -201,12 +258,12 @@ const AppContent: React.FC = () => {
     }
 
     const combinedPrompt =
-      'Apply the following changes to the nail art, keeping the overall design integrity: ' +
-      promptParts.join(' ');
+      'Apply the following changes to the nail art, keeping the overall design integrity: '
+      + promptParts.join(' ');
 
     performRegeneration(combinedPrompt);
     setStagedChanges({ colorSwap: null, styleModifier: null, textPrompt: '' });
-  }, [stagedChanges, performRegeneration]);
+  }, [stagedChanges, performRegeneration, language]);
 
   const handleModeChange = (newMode: GenerationMode) => {
     if (newMode === generationMode) {
@@ -214,29 +271,34 @@ const AppContent: React.FC = () => {
     }
 
     setGenerationMode(newMode);
-
     setStyleImage(null);
     setAppState({ status: AppStatus.IDLE });
     setPrompt('');
-    setStagedChanges({
-      colorSwap: null,
-      styleModifier: null,
-      textPrompt: '',
-    });
+    setStagedChanges({ colorSwap: null, styleModifier: null, textPrompt: '' });
     setActiveResultIndex(0);
+    setTagsByResult({});
   };
 
-  const canGenerate = baseImage && styleImage && appState.status !== AppStatus.LOADING && !isQuotaExhausted;
+  const canGenerate = Boolean(baseImage && styleImage && appState.status !== AppStatus.LOADING && !isQuotaExhausted);
   const baseImagePreview = baseImage ? URL.createObjectURL(baseImage) : null;
   const styleImagePreview = styleImage ? URL.createObjectURL(styleImage) : null;
 
   const baseImageUploaderTitle = generationMode === 'tryon' ? t('handPhotoTitleTryon') : t('handPhotoTitleInspiration');
-  const styleImageUploaderTitle =
-    generationMode === 'inspiration' ? t('styleImageTitleInspiration') : t('styleImageTitleTryon');
-
+  const styleImageUploaderTitle = generationMode === 'inspiration' ? t('styleImageTitleInspiration') : t('styleImageTitleTryon');
   const baseImageUploaderDescription = t('handPhotoDesc');
-  const styleImageUploaderDescription =
-    generationMode === 'inspiration' ? t('styleImageDescInspiration') : t('styleImageDescTryon');
+  const styleImageUploaderDescription = generationMode === 'inspiration' ? t('styleImageDescInspiration') : t('styleImageDescTryon');
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen font-sans text-gray-800">
+        <Header />
+        <main className="container mx-auto px-4 py-16">
+          <div className="max-w-3xl mx-auto text-center text-gray-600">Loading...</div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -244,18 +306,6 @@ const AppContent: React.FC = () => {
         <Header />
         <main className="container mx-auto px-4 py-12">
           <LandingPage />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen font-sans text-gray-800">
-        <Header />
-        <main className="container mx-auto px-4 py-16">
-          <div className="max-w-3xl mx-auto text-center text-gray-600">Loading...</div>
         </main>
         <Footer />
       </div>
@@ -275,16 +325,18 @@ const AppContent: React.FC = () => {
               <button
                 onClick={() => handleModeChange('inspiration')}
                 disabled={isQuotaExhausted}
-                className={`w-1/2 px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 ease-in-out disabled:cursor-not-allowed
-                  ${generationMode === 'inspiration' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
+                className={`w-1/2 px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 ease-in-out disabled:cursor-not-allowed ${
+                  generationMode === 'inspiration' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:bg-gray-200'
+                }`}
               >
                 {t('inspirationMode')}
               </button>
               <button
                 onClick={() => handleModeChange('tryon')}
                 disabled={isQuotaExhausted}
-                className={`w-1/2 px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 ease-in-out disabled:cursor-not-allowed
-                  ${generationMode === 'tryon' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
+                className={`w-1/2 px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 ease-in-out disabled:cursor-not-allowed ${
+                  generationMode === 'tryon' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:bg-gray-200'
+                }`}
               >
                 {t('tryonMode')}
               </button>
@@ -332,8 +384,9 @@ const AppContent: React.FC = () => {
             <button
               onClick={handleInitialGenerate}
               disabled={!canGenerate}
-              className={`inline-flex items-center justify-center gap-2 px-8 py-3 font-semibold text-white rounded-full shadow-sm transition-all duration-300 ease-in-out
-                ${canGenerate ? 'bg-gray-900 hover:bg-gray-700' : 'bg-gray-400 cursor-not-allowed'}`}
+              className={`inline-flex items-center justify-center gap-2 px-8 py-3 font-semibold text-white rounded-full shadow-sm transition-all duration-300 ease-in-out ${
+                canGenerate ? 'bg-gray-900 hover:bg-gray-700' : 'bg-gray-400 cursor-not-allowed'
+              }`}
             >
               <SparklesIcon />
               {appState.status === AppStatus.LOADING ? t('generatingButton') : t('generateButton')}
@@ -357,6 +410,17 @@ const AppContent: React.FC = () => {
             onApplyChanges={handleApplyStagedChanges}
             activeResultIndex={activeResultIndex}
             onSelectResult={setActiveResultIndex}
+            tags={tagsByResult[activeResultIndex]?.tags ?? []}
+            isGeneratingTags={tagsByResult[activeResultIndex]?.isLoading ?? false}
+            onTagsChange={(newTags) => {
+              setTagsByResult((prev) => ({
+                ...prev,
+                [activeResultIndex]: {
+                  ...(prev[activeResultIndex] ?? { isLoading: false }),
+                  tags: newTags,
+                },
+              }));
+            }}
           />
         </div>
       </main>

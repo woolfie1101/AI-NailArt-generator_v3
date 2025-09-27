@@ -1,11 +1,13 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import type { ImageData, GenerationMode } from '../types';
 
-if (!process.env.GEMINI_API_KEY) {
+const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+
+if (!apiKey) {
     throw new Error("GEMINI_API_KEY environment variable is not set");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey });
 
 export async function generateNailArt(
   baseImage: ImageData,
@@ -147,6 +149,60 @@ export async function extractDominantColors(image: ImageData): Promise<string[]>
     return [];
   } catch (error) {
     console.error("Error extracting colors with Gemini:", error);
+    return [];
+  }
+}
+
+export async function generateTagsForImage(image: ImageData, language: 'en' | 'ko'): Promise<string[]> {
+  const model = 'gemini-2.5-flash';
+
+  let promptText: string;
+  if (language === 'ko') {
+    promptText = "이 이미지의 네일아트를 분석해주세요. 스타일, 분위기, 색상, 어울리는 상황을 담은 설명적인 태그를 한국어로 5~7개 생성해주세요. 태그는 각각 1~3단어로 간결해야 합니다. 예시: '#미니멀시크', '#글리터네일', '#파스텔봄', '#오션블루', '#우아한누드톤'.";
+  } else {
+    promptText = "Analyze the nail art in this image. Generate 5-7 descriptive tags in English that capture its style, mood, colors, and potential occasions. Tags should be concise (1-3 words each) and start with a '#'. Examples: '#MinimalistChic', '#GlitterParty', '#PastelSpring', '#OceanicBlue', '#ElegantNude'.";
+  }
+  
+  const textPart = { text: promptText };
+  const imagePart = {
+    inlineData: {
+      data: image.data,
+      mimeType: image.mimeType,
+    },
+  };
+  
+  const contents = { parts: [imagePart, textPart] };
+
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      tags: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.STRING,
+          description: 'A concise, descriptive tag for the nail art (1-3 words).'
+        }
+      }
+    }
+  };
+
+  const config = {
+    responseMimeType: "application/json",
+    responseSchema: responseSchema,
+  };
+
+  try {
+    const response = await ai.models.generateContent({ model, contents, config });
+    const jsonText = response.text.trim();
+    const cleanJsonText = jsonText.replace(/^```json\n?/, '').replace(/```$/, '');
+    const parsed = JSON.parse(cleanJsonText);
+    if (parsed.tags && Array.isArray(parsed.tags)) {
+      return parsed.tags;
+    }
+    console.warn("Parsed JSON for tag generation is not in the expected format:", parsed);
+    return [];
+  } catch (error) {
+    console.error("Error generating tags with Gemini:", error);
     return [];
   }
 }

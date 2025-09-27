@@ -16,25 +16,10 @@ interface ResultDisplayProps {
   onApplyChanges: () => void;
   activeResultIndex: number;
   onSelectResult: (index: number) => void;
+  tags: string[];
+  isGeneratingTags: boolean;
+  onTagsChange: (newTags: string[]) => void;
 }
-
-const TARGET_COLORS = [
-  { name: 'Burgundy', hex: '#800020' },
-  { name: 'Navy Blue', hex: '#000080' },
-  { name: 'Dusty Rose', hex: '#DCAE96' },
-  { name: 'Emerald Green', hex: '#50C878' },
-  { name: 'Lavender', hex: '#E6E6FA' },
-  { name: 'Mustard Yellow', hex: '#FFDB58' },
-  { name: 'Charcoal Gray', hex: '#36454F' },
-  { name: 'Teal', hex: '#008080' },
-];
-
-const STYLE_MODIFIERS = [
-  'Add subtle glitter',
-  'Add magnetic gel effect',
-  'Make it matte finish',
-  'Add chrome powder effect'
-];
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
   appState, 
@@ -47,9 +32,32 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   onApplyChanges,
   activeResultIndex,
   onSelectResult,
+  tags,
+  isGeneratingTags,
+  onTagsChange,
 }) => {
   const [selectedFromColor, setSelectedFromColor] = useState<string | null>(null);
+  const [newTag, setNewTag] = useState('');
+  const [editingTag, setEditingTag] = useState<{ index: number; value: string } | null>(null);
   const { t } = useTranslations();
+
+  const TARGET_COLORS = [
+    { key: 'burgundy', name: t('colors.burgundy'), hex: '#800020' },
+    { key: 'navyBlue', name: t('colors.navyBlue'), hex: '#000080' },
+    { key: 'dustyRose', name: t('colors.dustyRose'), hex: '#DCAE96' },
+    { key: 'emeraldGreen', name: t('colors.emeraldGreen'), hex: '#50C878' },
+    { key: 'lavender', name: t('colors.lavender'), hex: '#E6E6FA' },
+    { key: 'mustardYellow', name: t('colors.mustardYellow'), hex: '#FFDB58' },
+    { key: 'charcoalGray', name: t('colors.charcoalGray'), hex: '#36454F' },
+    { key: 'teal', name: t('colors.teal'), hex: '#008080' },
+  ];
+  
+  const STYLE_MODIFIERS = [
+    { key: 'addGlitter', value: t('styleModifiers.addGlitter') },
+    { key: 'magneticGel', value: t('styleModifiers.magneticGel') },
+    { key: 'matteFinish', value: t('styleModifiers.matteFinish') },
+    { key: 'chromePowder', value: t('styleModifiers.chromePowder') }
+  ];
 
   if (appState.status === AppStatus.IDLE) {
     return null;
@@ -105,6 +113,50 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     const hasStagedChanges = Object.values(stagedChanges).some(val => 
         val !== null && (typeof val !== 'string' || val.trim() !== '')
     );
+    
+    const handleAddTag = () => {
+      const trimmedTag = newTag.trim();
+      if (trimmedTag && !tags.includes(trimmedTag)) {
+        onTagsChange([...tags, trimmedTag]);
+        setNewTag('');
+      }
+    };
+
+    const handleRemoveTag = (indexToRemove: number) => {
+      onTagsChange(tags.filter((_, index) => index !== indexToRemove));
+    };
+
+    const handleEditClick = (index: number) => {
+      setEditingTag({ index, value: tags[index] });
+    };
+
+    const handleUpdateTag = () => {
+      if (editingTag) {
+        const trimmedValue = editingTag.value.trim();
+        if (trimmedValue) {
+          const updatedTags = [...tags];
+          updatedTags[editingTag.index] = trimmedValue;
+          onTagsChange(updatedTags);
+        } else {
+          handleRemoveTag(editingTag.index);
+        }
+        setEditingTag(null);
+      }
+    };
+
+    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, isEditing: boolean) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (isEditing) {
+          handleUpdateTag();
+        } else {
+          handleAddTag();
+        }
+      }
+      if (e.key === 'Escape' && isEditing) {
+        setEditingTag(null);
+      }
+    };
 
     return (
       <div className="mt-8">
@@ -176,7 +228,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                     <div className="flex flex-wrap gap-2">
                         {TARGET_COLORS.map(target => (
                             <button 
-                                key={target.name}
+                                key={target.key}
                                 onClick={() => handleSelectToColor(target.name)}
                                 className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-full border border-gray-300 bg-white hover:bg-gray-100 transition"
                             >
@@ -195,13 +247,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               <div className="flex flex-wrap gap-2">
                 {STYLE_MODIFIERS.map(modifier => (
                   <button 
-                    key={modifier}
-                    onClick={() => handleStyleToggle(modifier)}
+                    key={modifier.key}
+                    onClick={() => handleStyleToggle(modifier.value)}
                     disabled={isQuotaExhausted}
-                    className={`px-3 py-1.5 text-sm rounded-full border-2 transition-all ${stagedChanges.styleModifier === modifier ? 'border-indigo-500 bg-indigo-100 font-semibold' : 'border-gray-300 bg-white hover:bg-gray-100'} disabled:bg-gray-100 disabled:cursor-not-allowed`}
-                    aria-pressed={stagedChanges.styleModifier === modifier}
+                    className={`px-3 py-1.5 text-sm rounded-full border-2 transition-all ${stagedChanges.styleModifier === modifier.value ? 'border-indigo-500 bg-indigo-100 font-semibold' : 'border-gray-300 bg-white hover:bg-gray-100'} disabled:bg-gray-100 disabled:cursor-not-allowed`}
+                    aria-pressed={stagedChanges.styleModifier === modifier.value}
                   >
-                    {modifier}
+                    {modifier.value}
                   </button>
                 ))}
               </div>
@@ -219,6 +271,72 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 disabled={isQuotaExhausted}
               />
             </div>
+
+            {/* 4. AI Generated Tags */}
+           <div className="mb-6">
+              <h4 className="font-semibold text-gray-700 mb-2">{t('aiTagsTitle')}</h4>
+              <p className="text-sm text-gray-500 mb-3">{t('aiTagsDesc')}</p>
+              {isGeneratingTags ? (
+                <div className="text-sm text-gray-500 animate-pulse">{t('generatingTags')}</div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    {tags.map((tag, index) => (
+                      <div key={`${tag}-${index}`} className="flex items-center gap-1 bg-gray-200 text-gray-800 text-sm rounded-full transition-all">
+                        {editingTag?.index === index ? (
+                           <input
+                            type="text"
+                            value={editingTag.value}
+                            onChange={(e) => setEditingTag({ index, value: e.target.value })}
+                            onBlur={handleUpdateTag}
+                            onKeyDown={(e) => handleInputKeyDown(e, true)}
+                            className="bg-transparent px-3 py-1 text-sm outline-none w-auto min-w-0"
+                            style={{ width: `${editingTag.value.length + 4}ch` }}
+                            autoFocus
+                          />
+                        ) : (
+                          <>
+                            <span
+                              onClick={() => handleEditClick(index)}
+                              className="px-3 py-1 cursor-pointer"
+                              role="button"
+                              tabIndex={0}
+                            >
+                              {tag}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveTag(index)}
+                              className="mr-2 text-gray-500 hover:text-gray-900 text-lg leading-none transition-colors"
+                              aria-label={`Remove tag ${tag}`}
+                            >
+                              &times;
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyDown={(e) => handleInputKeyDown(e, false)}
+                      placeholder={t('addTagPlaceholder')}
+                      className="w-full px-4 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition disabled:bg-gray-200"
+                      disabled={isQuotaExhausted}
+                    />
+                    <button
+                      onClick={handleAddTag}
+                      className="px-5 py-2 bg-slate-700 text-white rounded-md text-sm font-semibold hover:bg-slate-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      disabled={isQuotaExhausted}
+                    >
+                      {t('addTagButton')}
+                    </button>
+                  </div>
+                </>
+              )}
+           </div>
             
             {/* Staged Changes Summary & Apply Button */}
             <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">

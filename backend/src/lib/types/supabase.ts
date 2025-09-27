@@ -194,6 +194,264 @@ export type Database = {
         }
         Relationships: []
       }
+      generation_groups: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_favorite: boolean | null
+          name: string
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          name?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          name?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generation_assets: {
+        Row: {
+          created_at: string | null
+          group_id: string
+          id: string
+          name: string
+          parent_asset_id: string | null
+          storage_path: string
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          group_id: string
+          id?: string
+          name?: string
+          parent_asset_id?: string | null
+          storage_path: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string
+          id?: string
+          name?: string
+          parent_asset_id?: string | null
+          storage_path?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_assets_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "generation_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_assets_parent_asset_id_fkey"
+            columns: ["parent_asset_id"]
+            isOneToOne: false
+            referencedRelation: "generation_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_assets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_posts: {
+        Row: {
+          asset_id: string
+          caption: string | null
+          comment_count: number
+          created_at: string | null
+          hashtags: string[] | null
+          id: string
+          like_count: number
+          updated_at: string | null
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          asset_id: string
+          caption?: string | null
+          comment_count?: number
+          created_at?: string | null
+          hashtags?: string[] | null
+          id?: string
+          like_count?: number
+          updated_at?: string | null
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          asset_id?: string
+          caption?: string | null
+          comment_count?: number
+          created_at?: string | null
+          hashtags?: string[] | null
+          id?: string
+          like_count?: number
+          updated_at?: string | null
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "generation_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_likes: {
+        Row: {
+          created_at: string | null
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_comments: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_follows: {
+        Row: {
+          created_at: string | null
+          followee_id: string
+          follower_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          followee_id: string
+          follower_id: string
+        }
+        Update: {
+          created_at?: string | null
+          followee_id?: string
+          follower_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_follows_followee_id_fkey"
+            columns: ["followee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_usage: {
         Row: {
           created_at: string | null

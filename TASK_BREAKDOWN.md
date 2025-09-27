@@ -23,16 +23,16 @@ A combined roadmap for the image library and social feed features. Update checkb
    - Like/comment endpoints, follow/unfollow, feed retrieval (public/private).
 
 ## Phase 3 – Frontend Implementation
-6. [ ] **Bottom Navigation Integration**
+6. [x] **Bottom Navigation Integration**
    - Add mobile-first nav with Home / Create / Library tabs.
    - Home opens community feed; Create launches existing generator; Library opens archive view.
-7. [ ] **Library UI**
+7. [x] **Library UI**
    - Port `ui-library` components into the app, connect to real data.
    - Filtering, sorting, tag editing, favorites, downloads.
-8. [ ] **Folder Detail UI**
+8. [x] **Folder Detail UI**
    - Display folder images with edit/delete/download actions.
    - Allow publishing selected images to social feed.
-9. [ ] **Social Feed UI**
+9. [x] **Social Feed UI**
    - Build profile feed, community feed, post detail modals, follow states.
    - Include privacy indicators (public/private/mutual).
 

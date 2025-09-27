@@ -2,11 +2,20 @@ import type { ImageData } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
+export interface UploadedAsset {
+  id: string;
+  groupId: string;
+  name: string;
+  tags: string[];
+  imageUrl: string;
+  storagePath: string;
+  createdAt: string;
+  parentAssetId?: string | null;
+}
+
 export interface UploadResponse {
   success: boolean;
-  filename: string;
-  filepath: string;
-  size: number;
+  asset: UploadedAsset;
 }
 
 export interface GenerateResponse {

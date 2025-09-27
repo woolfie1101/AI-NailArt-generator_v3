@@ -7,23 +7,20 @@ export interface ApiResponse<T = any> {
   message?: string;
 }
 
+export interface AssetResponse {
+  id: string;
+  groupId: string;
+  name: string;
+  tags: string[];
+  imageUrl: string;
+  storagePath: string;
+  createdAt: string;
+  parentAssetId?: string | null;
+}
+
 export interface UploadResponse {
   success: boolean;
-  filename: string;
-  filepath: string;
-  size: number;
-}
-
-export interface GenerateRequest {
-  imagePath: string;
-  prompt?: string;
-  style?: string;
-}
-
-export interface GenerateResponse {
-  success: boolean;
-  result: string;
-  timestamp: string;
+  asset: AssetResponse;
 }
 
 export interface InspirationItem {
@@ -48,6 +45,61 @@ export interface HealthResponse {
     database: string;
     ai: string;
   };
+}
+
+export interface LibraryFolderSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  tags: string[];
+  isFavorite: boolean;
+  imageCount: number;
+  thumbnails: string[];
+}
+
+export interface LibraryFoldersResponse {
+  success: boolean;
+  folders: LibraryFolderSummary[];
+  nextCursor: string | null;
+}
+
+export interface LibraryFolderDetailResponse {
+  success: boolean;
+  folder: {
+    id: string;
+    name: string;
+    description: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+    tags: string[];
+    isFavorite: boolean;
+  };
+  assets: LibraryAssetResponse[];
+}
+
+export interface LibraryAssetResponse {
+  id: string;
+  groupId: string;
+  name: string;
+  tags: string[];
+  imageUrl: string;
+  storagePath: string;
+  createdAt: string | null;
+  parentAssetId: string | null;
+}
+
+export interface GenerateRequest {
+  imagePath: string;
+  prompt?: string;
+  style?: string;
+}
+
+export interface GenerateResponse {
+  success: boolean;
+  result: string;
+  timestamp: string;
 }
 
 // 에러 타입

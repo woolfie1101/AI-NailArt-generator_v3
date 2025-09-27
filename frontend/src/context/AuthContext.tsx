@@ -60,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          fetchProfile(session.user.id).catch((error) => {
+          fetchProfile(session.user).catch((error) => {
             console.error('프로필 로딩 실패:', error);
           });
         }
@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        fetchProfile(session.user.id).catch((error) => {
+        fetchProfile(session.user).catch((error) => {
           console.error('프로필 로딩 실패:', error);
         });
         setLoading(false);
@@ -99,19 +99,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (authUser: User) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('id', authUser.id)
+        .maybeSingle();
 
       if (error) {
         console.error('프로필 조회 오류:', error);
-      } else {
-        setProfile(data);
+        throw error;
       }
+
+      if (data) {
+        setProfile(data);
+        return;
+      }
+
+      const fallbackProfile: Profile = {
+        id: authUser.id,
+        email: authUser.email ?? '',
+        full_name: (authUser.user_metadata?.full_name as string | undefined) ?? null,
+        avatar_url: (authUser.user_metadata?.avatar_url as string | undefined) ?? null,
+        subscription_tier: 'free',
+        subscription_status: 'active',
+        subscription_expires_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('profiles')
+        .insert(fallbackProfile)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('프로필 생성 오류:', insertError);
+        throw insertError;
+      }
+
+      setProfile(inserted);
     } catch (error) {
       console.error('프로필 조회 오류:', error);
       throw error;

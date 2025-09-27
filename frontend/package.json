@@ -11,6 +11,9 @@
   "dependencies": {
     "@google/genai": "^1.17.0",
     "@supabase/supabase-js": "^2.57.4",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.446.0",
+    "react-responsive-masonry": "^2.4.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

@@ -652,6 +652,18 @@ const AppContent: React.FC = () => {
     </div>
   );
 
+  const imagesForCreatePost = useMemo(() => {
+    return libraryImages.map((image) => ({
+      ...image,
+      folderName: folderDictionary[image.folderId]?.name ?? 'Unnamed',
+    }));
+  }, [libraryImages, folderDictionary]);
+
+  const selectedFolder = selectedFolderId ? folderDictionary[selectedFolderId] : null;
+  const folderImages = selectedFolderId
+    ? libraryImages.filter((image) => image.folderId === selectedFolderId)
+    : [];
+
   if (authLoading) {
     return (
       <div className="min-h-screen font-sans text-gray-800">
@@ -675,18 +687,6 @@ const AppContent: React.FC = () => {
       </div>
     );
   }
-
-  const imagesForCreatePost = useMemo(() => {
-    return libraryImages.map((image) => ({
-      ...image,
-      folderName: folderDictionary[image.folderId]?.name ?? 'Unnamed',
-    }));
-  }, [libraryImages, folderDictionary]);
-
-  const selectedFolder = selectedFolderId ? folderDictionary[selectedFolderId] : null;
-  const folderImages = selectedFolderId
-    ? libraryImages.filter((image) => image.folderId === selectedFolderId)
-    : [];
 
   return (
     <div className="min-h-screen pb-24 font-sans text-gray-800">

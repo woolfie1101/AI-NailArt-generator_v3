@@ -41,6 +41,33 @@ import { useTranslations } from './hooks/useTranslations';
 import { translations } from './lib/i18n/translations';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
+const TAB_PATHS: Record<BottomNavTab, string> = {
+  home: '/',
+  create: '/create',
+  library: '/library',
+  profile: '/profile',
+};
+
+function normalizePath(path: string) {
+  if (!path) return '/';
+  const normalized = path.replace(/\/+/g, '/').replace(/\/+$/, '');
+  return normalized.length === 0 ? '/' : normalized;
+}
+
+function resolveTabFromLocation(pathname: string): BottomNavTab {
+  const normalized = normalizePath(pathname);
+  switch (normalized) {
+    case '/create':
+      return 'create';
+    case '/library':
+      return 'library';
+    case '/profile':
+      return 'profile';
+    default:
+      return 'home';
+  }
+}
+
 const SAMPLE_FEED_POSTS: FeedPost[] = [
   {
     id: 'post-1',
@@ -85,7 +112,9 @@ const AppContent: React.FC = () => {
   const { t, language } = useTranslations();
   const { user, loading: authLoading, session } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
+  const [activeTab, setActiveTab] = useState<BottomNavTab>(() =>
+    typeof window === 'undefined' ? 'home' : resolveTabFromLocation(window.location.pathname)
+  );
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>(SAMPLE_FEED_POSTS);
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [profile, setProfile] = useState<ProfileSummary>(SAMPLE_PROFILE);
@@ -708,9 +737,74 @@ const AppContent: React.FC = () => {
     return Object.fromEntries(libraryFolders.map((folder) => [folder.id, folder]));
   }, [libraryFolders]);
 
+  const resetLibraryView = useCallback(() => {
+    setSelectedFolderId(null);
+    setCreatePostContext({ open: false, folderId: null, imageId: null });
+    setFolderDetailError(null);
+  }, [setSelectedFolderId, setCreatePostContext, setFolderDetailError]);
+
+  const navigateToTab = useCallback(
+    (tab: BottomNavTab, options: { replace?: boolean } = {}) => {
+      setActiveTab(tab);
+
+      if (typeof window === 'undefined') {
+        if (tab !== 'library') {
+          resetLibraryView();
+        }
+        return;
+      }
+
+      const targetPath = TAB_PATHS[tab];
+      const currentPath = normalizePath(window.location.pathname);
+      const normalizedTarget = normalizePath(targetPath);
+
+      if (currentPath !== normalizedTarget) {
+        if (options.replace) {
+          window.history.replaceState({ tab }, '', targetPath);
+        } else {
+          window.history.pushState({ tab }, '', targetPath);
+        }
+      } else if (options.replace) {
+        window.history.replaceState({ tab }, '', targetPath);
+      }
+
+      if (tab !== 'library') {
+        resetLibraryView();
+      }
+    },
+    [resetLibraryView]
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const handlePopState = () => {
+      const nextTab = resolveTabFromLocation(window.location.pathname);
+      setActiveTab(nextTab);
+      if (nextTab !== 'library') {
+        resetLibraryView();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [resetLibraryView]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const initialTab = resolveTabFromLocation(window.location.pathname);
+    window.history.replaceState({ tab: initialTab }, '', TAB_PATHS[initialTab]);
+  }, []);
+
   const openCreatePost = (folderId: string | null, imageId: string | null) => {
     setCreatePostContext({ open: true, folderId, imageId });
-    setActiveTab('library');
+    navigateToTab('library');
   };
 
   const handlePublishPost = (values: { imageId: string; caption: string; visibility: 'public' | 'followers' | 'private' }) => {
@@ -738,7 +832,7 @@ const AppContent: React.FC = () => {
     setProfile((prev) => ({ ...prev, posts: prev.posts + 1 }));
     setCreatePostContext({ open: false, folderId: null, imageId: null });
     setSelectedFolderId(null);
-    setActiveTab('home');
+    navigateToTab('home');
   };
 
   const handleToggleFavoriteFolder = async (folderId: string) => {
@@ -1191,7 +1285,7 @@ const AppContent: React.FC = () => {
         <HomeFeed
           posts={feedPosts}
           onPostClick={(post) => setSelectedPost(post)}
-          onUserClick={() => setActiveTab('profile')}
+          onUserClick={() => navigateToTab('profile')}
           onLikeToggle={handleLikeToggle}
         />
       )}
@@ -1260,13 +1354,12 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      <BottomNavigation activeTab={activeTab} onTabChange={(tab) => {
-        setActiveTab(tab);
-        if (tab !== 'library') {
-          setSelectedFolderId(null);
-          setCreatePostContext({ open: false, folderId: null, imageId: null });
-        }
-      }} />
+      <BottomNavigation
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          navigateToTab(tab);
+        }}
+      />
 
       <PostDetailModal
         isOpen={Boolean(selectedPost)}

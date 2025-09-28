@@ -11,34 +11,97 @@ interface FolderCardProps {
 }
 
 export const FolderCard: React.FC<FolderCardProps> = ({ folder, onClick, onToggleFavorite, onPostToFeed }) => {
-  return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-      <button type="button" onClick={() => onClick(folder.id)} className="block w-full">
-        <div className="grid grid-cols-2 gap-1 bg-slate-100">
-          {Array.from({ length: 4 }).map((_, index) => {
-            const thumb = folder.thumbnails[index];
-            return thumb ? (
-              <img key={thumb} src={thumb} alt="thumbnail" className="h-20 w-full object-cover" />
-            ) : (
-              <div key={index} className="flex h-20 items-center justify-center bg-slate-200 text-slate-500">
-                <FolderOpen className="h-5 w-5" />
-              </div>
-            );
-          })}
-        </div>
-      </button>
+  const thumbnails = folder.thumbnails.filter(Boolean).slice(0, 4);
+  const count = thumbnails.length;
 
-      <div className="flex flex-1 flex-col gap-3 px-4 py-4">
+  const { gridClassName, cellSpans } = React.useMemo(() => {
+    if (count === 0) {
+      return {
+        gridClassName: 'grid-cols-2 grid-rows-2',
+        cellSpans: [] as Array<string>,
+      };
+    }
+
+    if (count === 1) {
+      return {
+        gridClassName: 'grid-cols-2 grid-rows-2',
+        cellSpans: ['col-span-2 row-span-2'],
+      };
+    }
+
+    if (count === 2) {
+      return {
+        gridClassName: 'grid-cols-2 grid-rows-2',
+        cellSpans: ['col-span-1 row-span-2', 'col-span-1 row-span-2'],
+      };
+    }
+
+    if (count === 3) {
+      return {
+        gridClassName: 'grid-cols-2 grid-rows-2',
+        cellSpans: ['col-span-1 row-span-2', 'col-span-1 row-span-1', 'col-span-1 row-span-1'],
+      };
+    }
+
+    return {
+      gridClassName: 'grid-cols-2 grid-rows-2',
+      cellSpans: ['col-span-1 row-span-1', 'col-span-1 row-span-1', 'col-span-1 row-span-1', 'col-span-1 row-span-1'],
+    };
+  }, [count]);
+
+  const handleCardClick = () => {
+    onClick(folder.id);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick(folder.id);
+    }
+  };
+
+  return (
+    <article
+      className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gray-400"
+      role="button"
+      tabIndex={0}
+      onClick={handleCardClick}
+      onKeyDown={handleKeyDown}
+    >
+      <div
+        className={clsx(
+          'grid gap-1 bg-slate-100 aspect-[4/3] overflow-hidden',
+          gridClassName
+        )}
+      >
+        {thumbnails.length > 0 ? (
+          thumbnails.map((thumb, index) => (
+            <img
+              key={thumb}
+              src={thumb}
+              alt="thumbnail"
+              className={clsx('h-full w-full object-cover', cellSpans[index])}
+            />
+          ))
+        ) : (
+          <div className="col-span-2 row-span-2 flex items-center justify-center bg-slate-200 text-slate-500">
+            <FolderOpen className="h-6 w-6" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 px-4 py-4 min-h-[168px]">
         <div className="flex items-start justify-between">
           <div>
-            <button type="button" className="text-left text-sm font-semibold text-gray-900" onClick={() => onClick(folder.id)}>
-              {folder.name}
-            </button>
+            <p className="text-left text-sm font-semibold text-gray-900">{folder.name}</p>
             <p className="text-xs text-gray-500">{folder.createdAt}</p>
           </div>
           <button
             type="button"
-            onClick={() => onToggleFavorite(folder.id)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleFavorite(folder.id);
+            }}
             className={clsx('rounded-full border px-3 py-1 text-xs font-medium transition',
               folder.isFavorite ? 'border-rose-200 bg-rose-50 text-rose-500' : 'border-slate-200 text-gray-500 hover:bg-slate-100'
             )}
@@ -58,7 +121,10 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folder, onClick, onToggl
           <span>{folder.imageCount}개의 이미지</span>
           <button
             type="button"
-            onClick={() => onPostToFeed(folder.id)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onPostToFeed(folder.id);
+            }}
             className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
           >
             피드에 게시하기

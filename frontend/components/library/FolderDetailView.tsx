@@ -13,6 +13,8 @@ interface FolderDetailProps {
   onUpdateTags: () => void;
   onShareImage: (imageId: string) => void;
   onDeleteImage: (imageId: string) => void;
+  onRenameImage: (image: LibraryImage) => void;
+  onEditImageTags: (image: LibraryImage) => void;
 }
 
 export const FolderDetailView: React.FC<FolderDetailProps> = ({
@@ -26,6 +28,8 @@ export const FolderDetailView: React.FC<FolderDetailProps> = ({
   onUpdateTags,
   onShareImage,
   onDeleteImage,
+  onRenameImage,
+  onEditImageTags,
 }) => {
   return (
     <div className="min-h-screen bg-[#F8F8F8] pb-24">
@@ -93,7 +97,7 @@ export const FolderDetailView: React.FC<FolderDetailProps> = ({
                     ))}
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <a
                         href={image.imageUrl}
                         download
@@ -107,6 +111,20 @@ export const FolderDetailView: React.FC<FolderDetailProps> = ({
                         className="flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
                       >
                         <Share2 className="h-3.5 w-3.5" /> 피드 게시
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRenameImage(image)}
+                        className="flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" /> 이름 수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onEditImageTags(image)}
+                        className="flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" /> 태그 수정
                       </button>
                     </div>
                     <button

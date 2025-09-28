@@ -15,9 +15,20 @@ interface LibraryViewProps {
   onSelectFolder: (folderId: string) => void;
   onToggleFavorite: (folderId: string) => void;
   onPostFolder: (folderId: string) => void;
+  isLoading?: boolean;
+  emptyMessage?: string;
+  errorMessage?: string | null;
 }
 
-export const LibraryView: React.FC<LibraryViewProps> = ({ folders, onSelectFolder, onToggleFavorite, onPostFolder }) => {
+export const LibraryView: React.FC<LibraryViewProps> = ({
+  folders,
+  onSelectFolder,
+  onToggleFavorite,
+  onPostFolder,
+  isLoading = false,
+  emptyMessage,
+  errorMessage,
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'name' | 'favorites'>('latest');
   const [showFilters, setShowFilters] = useState(false);
@@ -70,6 +81,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ folders, onSelectFolde
   const resetFilters = () => {
     setFilters({ startDate: '', endDate: '', selectedTags: [] });
   };
+
+  const hasActiveFilters = Boolean(
+    searchQuery ||
+      filters.startDate ||
+      filters.endDate ||
+      filters.selectedTags.length > 0
+  );
 
   return (
     <div className="min-h-screen bg-[#F8F8F8] pb-24">
@@ -179,9 +197,21 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ folders, onSelectFolde
           </section>
         )}
 
-        {sortedFolders.length === 0 ? (
+        {errorMessage && !isLoading && (
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+            {errorMessage}
+          </div>
+        )}
+
+        {isLoading ? (
           <div className="flex h-52 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-sm text-gray-500">
-            조건에 맞는 폴더가 없습니다.
+            라이브러리를 불러오는 중입니다...
+          </div>
+        ) : sortedFolders.length === 0 ? (
+          <div className="flex h-52 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-sm text-gray-500">
+            {folders.length === 0 && !hasActiveFilters
+              ? emptyMessage ?? '아직 생성한 폴더가 없습니다.'
+              : '조건에 맞는 폴더가 없습니다.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">

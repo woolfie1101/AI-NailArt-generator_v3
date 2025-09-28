@@ -19,6 +19,10 @@ interface ResultDisplayProps {
   tags: string[];
   isGeneratingTags: boolean;
   onTagsChange: (newTags: string[]) => void;
+  onSaveTags: () => void;
+  isDirty: boolean;
+  isSavingTags: boolean;
+  saveError?: string | null;
 }
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
@@ -35,6 +39,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   tags,
   isGeneratingTags,
   onTagsChange,
+  onSaveTags,
+  isDirty,
+  isSavingTags,
+  saveError,
 }) => {
   const [selectedFromColor, setSelectedFromColor] = useState<string | null>(null);
   const [newTag, setNewTag] = useState('');
@@ -76,10 +84,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     const activeResult = appState.results[activeResultIndex];
     if (!activeResult) return null;
 
+    const previewUrl = activeResult.previewUrl;
+
     const handleDownload = () => {
       const link = document.createElement('a');
-      link.href = activeResult;
-      link.download = `nail-art-design-${activeResultIndex + 1}.png`;
+      link.href = activeResult.asset.imageUrl || previewUrl;
+      link.download = `nail-art-design-${activeResultIndex + 1}.jpeg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -145,6 +155,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     };
 
     const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, isEditing: boolean) => {
+      if ((e.nativeEvent as KeyboardEvent).isComposing) {
+        return;
+      }
+
       if (e.key === 'Enter') {
         e.preventDefault();
         if (isEditing) {
@@ -162,7 +176,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
       <div className="mt-8">
         <h2 className="text-2xl font-bold text-center mb-6">{t('resultTitle')}</h2>
         <div className="relative group w-full max-w-lg mx-auto rounded-lg overflow-hidden shadow-lg border">
-          <img src={activeResult} alt="Generated nail art" className="w-full h-auto" />
+          <img src={previewUrl} alt="Generated nail art" className="w-full h-auto" />
           <div className="absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={handleDownload}
@@ -187,7 +201,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                         `}
                         aria-label={`${t('historyAriaLabel')} ${index + 1}`}
                     >
-                        <img src={res} alt={`${t('historyAriaLabel')} ${index + 1}`} className="w-full h-full object-cover" />
+                        <img src={res.previewUrl} alt={`${t('historyAriaLabel')} ${index + 1}`} className="w-full h-full object-cover" />
                     </button>
                     ))}
                 </div>
@@ -306,7 +320,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                             </span>
                             <button
                               onClick={() => handleRemoveTag(index)}
-                              className="mr-2 text-gray-500 hover:text-gray-900 text-lg leading-none transition-colors"
+                              disabled={isSavingTags}
+                              className={`mr-2 text-lg leading-none transition-colors ${
+                                isSavingTags ? 'text-gray-400 cursor-not-allowed' : 'text-gray-500 hover:text-gray-900'
+                              }`}
                               aria-label={`Remove tag ${tag}`}
                             >
                               &times;
@@ -316,7 +333,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={newTag}
@@ -324,15 +341,41 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                       onKeyDown={(e) => handleInputKeyDown(e, false)}
                       placeholder={t('addTagPlaceholder')}
                       className="w-full px-4 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition disabled:bg-gray-200"
-                      disabled={isQuotaExhausted}
+                      disabled={isQuotaExhausted || isSavingTags}
                     />
                     <button
                       onClick={handleAddTag}
-                      className="px-5 py-2 bg-slate-700 text-white rounded-md text-sm font-semibold hover:bg-slate-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      disabled={isQuotaExhausted}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                        isQuotaExhausted || isSavingTags
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-slate-700 text-white hover:bg-slate-600'
+                      }`}
+                      disabled={isQuotaExhausted || isSavingTags}
+                      aria-label={t('addTagButton')}
                     >
-                      {t('addTagButton')}
+                      +
                     </button>
+                    <button
+                      type="button"
+                      onClick={onSaveTags}
+                      disabled={!isDirty || isSavingTags}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                        isDirty
+                          ? 'bg-indigo-600 text-white hover:bg-indigo-500'
+                          : 'bg-gray-300 text-gray-500'
+                      } ${isSavingTags ? 'cursor-wait opacity-75' : ''}`}
+                      aria-label="태그 저장"
+                    >
+                      💾
+                    </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    {isDirty && !isSavingTags && (
+                      <span className="text-xs text-gray-500">태그를 저장해야 라이브러리에 반영됩니다.</span>
+                    )}
+                    {saveError && (
+                      <span className="text-xs text-rose-600">{saveError}</span>
+                    )}
                   </div>
                 </>
               )}

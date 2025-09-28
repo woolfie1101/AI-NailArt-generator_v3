@@ -1,12 +1,4 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import fs from 'fs';
-
-export interface AIGenerationOptions {
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-}
-
 export class AIService {
   private genAI: GoogleGenerativeAI;
 
@@ -14,93 +6,72 @@ export class AIService {
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
-  /**
-   * 네일 아트 디자인을 생성합니다
-   */
-  async generateNailArt(
-    imagePath: string,
-    prompt: string,
-    style: string = '자연스러운',
-    options: AIGenerationOptions = {}
-  ): Promise<string> {
+  async generateNailArt(params: GenerateNailArtParams): Promise<GeneratedImageResult> {
+    const {
+      baseImage,
+      styleImage,
+      prompt,
+      mode = 'inspiration',
+      isRegeneration = false,
+    } = params;
+
+    if (!baseImage?.data) {
+      throw new Error('Base image data is required for generation.');
+    }
+
     try {
-      const {
-        model = 'gemini-1.5-flash',
-        temperature = 0.7
-      } = options;
-
-      // 이미지 파일 읽기
-      const imageBuffer = fs.readFileSync(imagePath);
-      const base64Image = imageBuffer.toString('base64');
-
-      // Gemini 모델 초기화
-      const modelInstance = this.genAI.getGenerativeModel({ 
-        model,
+      const modelInstance = this.genAI.getGenerativeModel({
+        model: params.model ?? 'gemini-1.5-flash',
         generationConfig: {
-          temperature,
-          maxOutputTokens: 2048,
-        }
+          temperature: params.temperature ?? 0.7,
+          maxOutputTokens: params.maxTokens ?? 2048,
+        },
       });
 
-      // 프롬프트 구성
-      const fullPrompt = this.buildPrompt(prompt, style);
+      const parts: Array<
+        | { text: string }
+        | { inlineData: { data: string; mimeType: string } }
+      > = [];
 
-      // 이미지와 텍스트를 함께 처리
-      const result = await modelInstance.generateContent([
-        fullPrompt,
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: 'image/jpeg'
-          }
-        }
-      ]);
+      const promptText = buildPrompt({
+        prompt,
+        mode,
+        isRegeneration,
+      });
 
+      parts.push({ inlineData: baseImage });
+
+      if (!isRegeneration && styleImage) {
+        parts.push({ inlineData: styleImage });
+      }
+
+      parts.push({ text: promptText });
+
+      const result = await modelInstance.generateContent(parts);
       const response = await result.response;
-      return response.text();
 
+      const allParts = (response.candidates ?? []).flatMap((candidate) => candidate.content?.parts ?? []);
+
+      const imagePart = allParts.find(isInlineDataPart);
+
+      if (imagePart) {
+        return {
+          data: imagePart.inlineData.data,
+          mimeType: imagePart.inlineData.mimeType ?? 'image/png',
+        };
+      }
+
+      const textPart = allParts.find(isTextPart);
+
+      if (textPart) {
+        console.warn('Gemini API returned text instead of an image:', textPart.text);
+      }
+
+      throw new Error('AI response did not contain an image payload.');
     } catch (error) {
       console.error('AI 생성 오류:', error);
       throw new Error('AI 네일 아트 생성 중 오류가 발생했습니다.');
     }
-  }
-
-  /**
-   * 프롬프트를 구성합니다
-   */
-  private buildPrompt(userPrompt: string, style: string): string {
-    return `
-당신은 전문적인 네일 아트 디자이너입니다. 제공된 손톱 이미지를 분석하고 ${style} 스타일의 아름다운 네일 아트 디자인을 제안해주세요.
-
-사용자 요청: ${userPrompt}
-
-다음 요소들을 포함하여 구체적인 디자인 설명을 제공해주세요:
-
-1. **색상 팔레트**: 추천 색상과 그 조합
-2. **디자인 패턴**: 사용할 패턴이나 모티브
-3. **장식 요소**: 글리터, 스톤, 스티커 등 장식 아이템
-4. **기법**: 그라데이션, 오므브레, 프렌치 등 적용할 기법
-5. **단계별 설명**: 실제로 적용할 수 있는 구체적인 단계
-6. **팁과 주의사항**: 더 나은 결과를 위한 조언
-
-창의적이고 실현 가능한 디자인을 제안해주세요.
-    `.trim();
-  }
-
-  /**
-   * 스타일별 프롬프트를 생성합니다
-   */
-  static getStylePrompts(): Record<string, string> {
-    return {
-      '클래식': '우아하고 세련된 클래식 스타일',
-      '모던': '현대적이고 트렌디한 모던 스타일',
-      '플로럴': '꽃과 식물을 모티브로 한 자연스러운 스타일',
-      '미니멀': '심플하고 깔끔한 미니멀 스타일',
-      '글리터': '화려하고 반짝이는 글리터 스타일',
-      '기하학적': '선과 도형을 활용한 기하학적 스타일',
-      '바이브런트': '생생하고 밝은 색상의 대담한 스타일',
-      '로맨틱': '로맨틱하고 우아한 스타일'
-    };
   }
 
   /**
@@ -116,4 +87,90 @@ export class AIService {
       return false;
     }
   }
+}
+
+interface GenerateNailArtParams {
+  baseImage: { data: string; mimeType: string };
+  styleImage?: { data: string; mimeType: string } | null;
+  prompt: string;
+  mode?: 'inspiration' | 'tryon';
+  isRegeneration?: boolean;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+interface GeneratedImageResult {
+  data: string;
+  mimeType: string;
+}
+
+interface InlineDataPart {
+  inlineData: {
+    data: string;
+    mimeType?: string;
+  };
+  text?: never;
+}
+
+interface TextPart {
+  text: string;
+  inlineData?: never;
+}
+
+function buildPrompt({
+  prompt,
+  mode,
+  isRegeneration,
+}: {
+  prompt: string;
+  mode: 'inspiration' | 'tryon';
+  isRegeneration: boolean;
+}): string {
+  const qualityInstructions =
+    'The resulting nail art must be hyper-photorealistic, seamlessly blended with the original hand photo. Match lighting, shadows, and reflections. Preserve the hand shape, pose, skin texture, and nail shape. Apply a glossy finish.';
+
+  if (isRegeneration) {
+    const crucialRule =
+      'Crucial rule: Only modify the nail art. Do not alter the hand shape, pose, skin texture, nail shape, or background.';
+    return `Edit the nail art on the hand in the image based on the following instruction: "${prompt}". ${qualityInstructions} ${crucialRule}`;
+  }
+
+  if (mode === 'tryon') {
+    return `Objective: transfer the nail art design from the reference image onto the client's hand photo with perfect realism. ${qualityInstructions}
+
+1. Nail shape and length must match the base hand exactly.
+2. Preserve the hand and background from the base image.
+3. Map designs finger-to-finger when multiple patterns exist; otherwise create a cohesive set.
+4. Produce a result indistinguishable from a real-world manicure.
+
+User request: "${prompt}".`;
+  }
+
+  const crucialRule =
+    'ABSOLUTE DIRECTIVE: Preserve the original nail shape and length from the base image. Only the nail art changes.';
+  return `Apply nail art to the hand photo inspired by the reference image. The user request: "${prompt}". ${qualityInstructions} ${crucialRule}`;
+}
+
+function isInlineDataPart(part: unknown): part is InlineDataPart {
+  if (typeof part !== 'object' || part === null) {
+    return false;
+  }
+
+  const candidate = part as { inlineData?: unknown };
+  if (!candidate.inlineData || typeof candidate.inlineData !== 'object') {
+    return false;
+  }
+
+  const inline = candidate.inlineData as { data?: unknown; mimeType?: unknown };
+  return typeof inline.data === 'string';
+}
+
+function isTextPart(part: unknown): part is TextPart {
+  if (typeof part !== 'object' || part === null) {
+    return false;
+  }
+
+  const candidate = part as { text?: unknown };
+  return typeof candidate.text === 'string';
 }

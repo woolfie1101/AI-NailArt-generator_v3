@@ -34,4 +34,4 @@
 - Use pagination for comments and feed (cursor-based recommended).
 - Integrate with Task 3 cleanup utilities to handle cascade deletes.
 
-_Status: Spec drafted_
+_Status: Backend endpoints implemented (needs integration & testing)_

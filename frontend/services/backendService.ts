@@ -1,6 +1,6 @@
 import type { ImageData } from '../types';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export interface UploadedAsset {
   id: string;
@@ -18,10 +18,32 @@ export interface UploadResponse {
   asset: UploadedAsset;
 }
 
+export interface ImagePayload {
+  data: string;
+  mimeType: string;
+}
+
+export interface GenerateRequest {
+  groupId?: string;
+  prompt: string;
+  style?: string | null;
+  mode?: 'inspiration' | 'tryon';
+  baseImage?: ImagePayload;
+  styleImage?: ImagePayload | null;
+  generatedImage?: ImagePayload;
+  parentAssetId?: string | null;
+  name?: string;
+  tags?: string[];
+}
+
 export interface GenerateResponse {
   success: boolean;
-  result: string;
-  timestamp: string;
+  asset: UploadedAsset;
+  group: {
+    id: string;
+    name: string;
+    isNew: boolean;
+  };
 }
 
 export interface InspirationResponse {
@@ -60,26 +82,34 @@ export class BackendService {
   /**
    * AI를 사용하여 네일 아트를 생성합니다
    */
-  static async generateNailArt(
-    imagePath: string,
-    prompt: string,
-    style: string = '자연스러운'
-  ): Promise<GenerateResponse> {
+  static async generateNailArt(payload: GenerateRequest, accessToken: string): Promise<GenerateResponse> {
+    if (!accessToken) {
+      throw new Error('인증 토큰이 필요합니다.');
+    }
+
     const response = await fetch(`${BACKEND_URL}/api/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({
-        imagePath,
-        prompt,
-        style,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'AI 생성에 실패했습니다.');
+      let message = 'AI 생성에 실패했습니다.';
+      try {
+        const error = await response.json();
+        if (error && typeof error.error === 'string') {
+          message = error.error;
+        }
+      } catch {
+        const text = await response.text();
+        if (text) {
+          message = text;
+        }
+      }
+      throw new Error(message);
     }
 
     return await response.json();

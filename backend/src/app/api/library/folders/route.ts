@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { authenticateRequest } from '@/utils/auth';
 import { createSignedUrls } from '@/utils/storage';
 import type { LibraryFoldersResponse } from '@/types/api';
+import { corsJson, createOptionsHandler, applyCors } from '@/utils/cors';
+
+export const OPTIONS = createOptionsHandler(['GET']);
 
 const DEFAULT_LIMIT = 20;
 
@@ -16,7 +19,7 @@ function parseBoolean(value: string | null): boolean | undefined {
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if ('response' in auth) {
-    return auth.response;
+    return applyCors(auth.response);
   }
 
   const { user } = auth;
@@ -60,12 +63,12 @@ export async function GET(request: NextRequest) {
 
     if (groupsError) {
       console.error('폴더 목록 조회 오류:', groupsError);
-      return NextResponse.json({ success: false, error: '폴더 목록 조회에 실패했습니다.' }, { status: 500 });
+      return corsJson({ success: false, error: '폴더 목록 조회에 실패했습니다.' }, { status: 500 });
     }
 
     if (!groups || groups.length === 0) {
       const emptyResponse: LibraryFoldersResponse = { success: true, folders: [], nextCursor: null };
-      return NextResponse.json(emptyResponse);
+      return corsJson(emptyResponse);
     }
 
     const filteredGroups = tagsFilter.length
@@ -76,7 +79,7 @@ export async function GET(request: NextRequest) {
       : groups;
 
     if (filteredGroups.length === 0) {
-      return NextResponse.json({ success: true, folders: [], nextCursor: null } as LibraryFoldersResponse);
+      return corsJson({ success: true, folders: [], nextCursor: null } as LibraryFoldersResponse);
     }
 
     const groupIds = filteredGroups.map((group) => group.id);
@@ -142,9 +145,9 @@ export async function GET(request: NextRequest) {
       nextCursor: nextCursorValue,
     };
 
-    return NextResponse.json(response);
+    return corsJson(response);
   } catch (error) {
     console.error('폴더 목록 처리 오류:', error);
-    return NextResponse.json({ success: false, error: '폴더 목록을 불러오지 못했습니다.' }, { status: 500 });
+    return corsJson({ success: false, error: '폴더 목록을 불러오지 못했습니다.' }, { status: 500 });
   }
 }

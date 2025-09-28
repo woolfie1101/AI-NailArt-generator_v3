@@ -6,10 +6,26 @@ export enum AppStatus {
   ERROR = 'ERROR',
 }
 
+export interface GeneratedResult {
+  previewUrl: string;
+  asset: GeneratedAsset;
+}
+
+export interface GeneratedAsset {
+  id: string;
+  groupId: string;
+  imageUrl: string;
+  storagePath: string;
+  name: string;
+  createdAt: string | null;
+  tags: string[];
+  parentAssetId: string | null;
+}
+
 export type AppState =
   | { status: AppStatus.IDLE }
   | { status: AppStatus.LOADING }
-  | { status: AppStatus.SUCCESS; results: string[] }
+  | { status: AppStatus.SUCCESS; results: GeneratedResult[] }
   | { status: AppStatus.ERROR; error: string };
 
 export interface ImageData {
@@ -42,6 +58,7 @@ export interface FeedPost {
 export interface LibraryFolder {
   id: string;
   name: string;
+  description?: string | null;
   createdAt: string;
   imageCount: number;
   tags: string[];
@@ -56,6 +73,8 @@ export interface LibraryImage {
   createdAt: string;
   tags: string[];
   folderId: string;
+  storagePath?: string;
+  parentAssetId?: string | null;
 }
 
 export interface ProfileSummary {

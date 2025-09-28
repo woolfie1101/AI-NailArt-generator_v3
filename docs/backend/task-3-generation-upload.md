@@ -34,4 +34,4 @@ Goal: ensure every generated image is persisted to Supabase Storage and recorded
 - Prefer server-side signed URLs with short expiry; client requests them as needed.
 - Schedule: wrap up before starting Task 4.
 
-_Status: spec ready — coding next_
+_Status: Backend endpoints implemented (`/api/generations/group`, `/api/upload`, `/api/generate`) and generator UI now stores results via `/api/generate`_

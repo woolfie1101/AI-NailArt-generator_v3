@@ -44,3 +44,7 @@ A combined roadmap for the image library and social feed features. Update checkb
     - Translate new UI copy (KO/EN) and ensure keyboard/screen reader support.
 
 _Last updated: 2025-09-27_
+
+## Follow-up Items
+- [x] `POST /api/generate`가 이미지 생성 직후 업로드 헬퍼를 호출하도록 수정하여 Storage/DB에 자동 저장되도록 연결하기.
+- [x] 프론트엔드 생성 플로우에서 생성 결과를 백엔드 `/api/generate`에 전달해 `groupId`와 함께 저장·동기화하기.

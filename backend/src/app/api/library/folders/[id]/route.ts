@@ -1,17 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { authenticateRequest } from '@/utils/auth';
 import { createSignedUrls, removeFromStorage } from '@/utils/storage';
 import type { LibraryFolderDetailResponse } from '@/types/api';
+import { applyCors, corsJson, createOptionsHandler } from '@/utils/cors';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export const OPTIONS = createOptionsHandler(['GET', 'PATCH', 'DELETE']);
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateRequest(request);
   if ('response' in auth) {
-    return auth.response;
+    return applyCors(auth.response);
   }
 
   const { user } = auth;
-  const folderId = params.id;
+  const { id: folderId } = await params;
 
   try {
     const { data: folder, error: folderError } = await supabaseAdmin
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .single();
 
     if (folderError || !folder) {
-      return NextResponse.json({ success: false, error: '폴더를 찾을 수 없습니다.' }, { status: 404 });
+      return corsJson({ success: false, error: '폴더를 찾을 수 없습니다.' }, { status: 404 });
     }
 
     const { data: assets, error: assetsError } = await supabaseAdmin
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     if (assetsError) {
       console.error('폴더 이미지 조회 오류:', assetsError);
-      return NextResponse.json({ success: false, error: '이미지 조회에 실패했습니다.' }, { status: 500 });
+      return corsJson({ success: false, error: '이미지 조회에 실패했습니다.' }, { status: 500 });
     }
 
     const paths = (assets ?? []).map((asset) => asset.storage_path);
@@ -62,21 +65,21 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       })),
     };
 
-    return NextResponse.json(response);
+    return corsJson(response);
   } catch (error) {
     console.error('폴더 상세 조회 오류:', error);
-    return NextResponse.json({ success: false, error: '폴더 상세 조회 중 오류가 발생했습니다.' }, { status: 500 });
+    return corsJson({ success: false, error: '폴더 상세 조회 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateRequest(request);
   if ('response' in auth) {
-    return auth.response;
+    return applyCors(auth.response);
   }
 
   const { user } = auth;
-  const folderId = params.id;
+  const { id: folderId } = await params;
 
   try {
     const payload = await request.json().catch(() => ({}));
@@ -99,7 +102,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ success: false, error: '업데이트할 내용이 없습니다.' }, { status: 400 });
+      return corsJson({ success: false, error: '업데이트할 내용이 없습니다.' }, { status: 400 });
     }
 
     updates.updated_at = new Date().toISOString();
@@ -113,24 +116,24 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ success: false, error: '폴더 업데이트에 실패했습니다.' }, { status: 500 });
+      return corsJson({ success: false, error: '폴더 업데이트에 실패했습니다.' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, folder: data });
+    return corsJson({ success: true, folder: data });
   } catch (error) {
     console.error('폴더 업데이트 오류:', error);
-    return NextResponse.json({ success: false, error: '폴더 업데이트 중 오류가 발생했습니다.' }, { status: 500 });
+    return corsJson({ success: false, error: '폴더 업데이트 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateRequest(request);
   if ('response' in auth) {
-    return auth.response;
+    return applyCors(auth.response);
   }
 
   const { user } = auth;
-  const folderId = params.id;
+  const { id: folderId } = await params;
 
   try {
     const { data: assets, error: assetsError } = await supabaseAdmin
@@ -141,7 +144,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     if (assetsError) {
       console.error('폴더 삭제 전 에셋 조회 오류:', assetsError);
-      return NextResponse.json({ success: false, error: '폴더 삭제 전에 이미지를 불러오지 못했습니다.' }, { status: 500 });
+      return corsJson({ success: false, error: '폴더 삭제 전에 이미지를 불러오지 못했습니다.' }, { status: 500 });
     }
 
     for (const asset of assets ?? []) {
@@ -162,12 +165,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     if (deleteGroupError) {
       console.error('폴더 삭제 오류:', deleteGroupError);
-      return NextResponse.json({ success: false, error: '폴더 삭제에 실패했습니다.' }, { status: 500 });
+      return corsJson({ success: false, error: '폴더 삭제에 실패했습니다.' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return corsJson({ success: true });
   } catch (error) {
     console.error('폴더 삭제 처리 오류:', error);
-    return NextResponse.json({ success: false, error: '폴더 삭제 중 서버 오류가 발생했습니다.' }, { status: 500 });
+    return corsJson({ success: false, error: '폴더 삭제 중 서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }

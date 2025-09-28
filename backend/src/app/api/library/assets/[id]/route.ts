@@ -1,17 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { authenticateRequest } from '@/utils/auth';
 import { removeFromStorage, createSignedUrl } from '@/utils/storage';
 import type { LibraryAssetResponse } from '@/types/api';
+import { applyCors, corsJson, createOptionsHandler } from '@/utils/cors';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export const OPTIONS = createOptionsHandler(['PATCH', 'DELETE']);
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateRequest(request);
   if ('response' in auth) {
-    return auth.response;
+    return applyCors(auth.response);
   }
 
   const { user } = auth;
-  const assetId = params.id;
+  const { id: assetId } = await params;
 
   try {
     const payload = await request.json().catch(() => ({}));
@@ -26,7 +29,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ success: false, error: '업데이트할 내용이 없습니다.' }, { status: 400 });
+      return corsJson({ success: false, error: '업데이트할 내용이 없습니다.' }, { status: 400 });
     }
 
     updates.updated_at = new Date().toISOString();
@@ -40,7 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ success: false, error: '이미지 정보를 업데이트하지 못했습니다.' }, { status: 500 });
+      return corsJson({ success: false, error: '이미지 정보를 업데이트하지 못했습니다.' }, { status: 500 });
     }
 
     const signedUrl = await createSignedUrl(data.storage_path);
@@ -59,21 +62,21 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       },
     };
 
-    return NextResponse.json(response);
+    return corsJson(response);
   } catch (error) {
     console.error('에셋 업데이트 오류:', error);
-    return NextResponse.json({ success: false, error: '이미지 정보를 업데이트하지 못했습니다.' }, { status: 500 });
+    return corsJson({ success: false, error: '이미지 정보를 업데이트하지 못했습니다.' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateRequest(request);
   if ('response' in auth) {
-    return auth.response;
+    return applyCors(auth.response);
   }
 
   const { user } = auth;
-  const assetId = params.id;
+  const { id: assetId } = await params;
 
   try {
     const { data: asset, error } = await supabaseAdmin
@@ -84,7 +87,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .single();
 
     if (error || !asset) {
-      return NextResponse.json({ success: false, error: '이미지를 찾을 수 없습니다.' }, { status: 404 });
+      return corsJson({ success: false, error: '이미지를 찾을 수 없습니다.' }, { status: 404 });
     }
 
     if (asset.storage_path) {
@@ -95,9 +98,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     await supabaseAdmin.from('generation_assets').delete().eq('id', assetId).eq('user_id', user.id);
 
-    return NextResponse.json({ success: true });
+    return corsJson({ success: true });
   } catch (error) {
     console.error('에셋 삭제 오류:', error);
-    return NextResponse.json({ success: false, error: '이미지를 삭제하지 못했습니다.' }, { status: 500 });
+    return corsJson({ success: false, error: '이미지를 삭제하지 못했습니다.' }, { status: 500 });
   }
 }

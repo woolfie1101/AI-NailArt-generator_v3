@@ -16,6 +16,16 @@ import { LibraryView } from './components/library/LibraryView';
 import { FolderDetailView } from './components/library/FolderDetailView';
 import { fileToBase64 } from './utils/fileUtils';
 import { generateNailArt, extractDominantColors, generateTagsForImage } from './services/geminiService';
+import { BackendService, UploadedAsset } from './services/backendService';
+import {
+  fetchLibraryFolders,
+  fetchLibraryFolderDetail,
+  toggleFavoriteFolder,
+  deleteFolder,
+  deleteAsset,
+  updateFolder,
+  updateAsset,
+} from './services/libraryService';
 import type {
   AppState,
   GenerationMode,
@@ -24,96 +34,12 @@ import type {
   LibraryFolder,
   LibraryImage,
   ProfileSummary,
+  GeneratedResult,
 } from './types';
 import { AppStatus } from './types';
 import { useTranslations } from './hooks/useTranslations';
 import { translations } from './lib/i18n/translations';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-
-const SAMPLE_LIBRARY_FOLDERS: LibraryFolder[] = [
-  {
-    id: 'folder-1',
-    name: '2025-09-27_가을 무드',
-    createdAt: '2025-09-27',
-    imageCount: 2,
-    tags: ['가을', '홀로그램', '우아한'],
-    isFavorite: true,
-    thumbnails: [
-      'https://images.unsplash.com/photo-1667877610066-18221c560e30?auto=format&fit=crop&w=400&q=80',
-      'https://images.unsplash.com/photo-1699997760248-71ac169e640e?auto=format&fit=crop&w=400&q=80',
-      'https://images.unsplash.com/photo-1599472308689-1b0d452886b7?auto=format&fit=crop&w=400&q=80',
-      'https://images.unsplash.com/photo-1673252413885-a3d44c339621?auto=format&fit=crop&w=400&q=80',
-    ],
-  },
-  {
-    id: 'folder-2',
-    name: '여름 글리터',
-    createdAt: '2025-08-18',
-    imageCount: 2,
-    tags: ['여름', '글리터', '파티'],
-    isFavorite: false,
-    thumbnails: [
-      'https://images.unsplash.com/photo-1674383600495-bfa0405f3c93?auto=format&fit=crop&w=400&q=80',
-      'https://images.unsplash.com/photo-1611821828952-3453ba0f9408?auto=format&fit=crop&w=400&q=80',
-      'https://images.unsplash.com/photo-1673252413885-a3d44c339621?auto=format&fit=crop&w=400&q=80',
-    ],
-  },
-  {
-    id: 'folder-3',
-    name: '미니멀 시리즈',
-    createdAt: '2025-07-05',
-    imageCount: 1,
-    tags: ['미니멀', '모던'],
-    isFavorite: true,
-    thumbnails: [
-      'https://images.unsplash.com/photo-1599316329891-19df7fa9580d?auto=format&fit=crop&w=400&q=80',
-      'https://images.unsplash.com/photo-1599472308689-1b0d452886b7?auto=format&fit=crop&w=400&q=80',
-    ],
-  },
-];
-
-const SAMPLE_LIBRARY_IMAGES: LibraryImage[] = [
-  {
-    id: 'img-1',
-    folderId: 'folder-1',
-    imageUrl: 'https://images.unsplash.com/photo-1667877610066-18221c560e30?auto=format&fit=crop&w=800&q=80',
-    name: '2025-09-27_01',
-    createdAt: '2025-09-27',
-    tags: ['가을', '홀로그램'],
-  },
-  {
-    id: 'img-2',
-    folderId: 'folder-1',
-    imageUrl: 'https://images.unsplash.com/photo-1699997760248-71ac169e640e?auto=format&fit=crop&w=800&q=80',
-    name: '2025-09-27_02',
-    createdAt: '2025-09-27',
-    tags: ['가을', '반짝임'],
-  },
-  {
-    id: 'img-3',
-    folderId: 'folder-2',
-    imageUrl: 'https://images.unsplash.com/photo-1674383600495-bfa0405f3c93?auto=format&fit=crop&w=800&q=80',
-    name: '2025-08-18_01',
-    createdAt: '2025-08-18',
-    tags: ['여름', '글리터'],
-  },
-  {
-    id: 'img-4',
-    folderId: 'folder-2',
-    imageUrl: 'https://images.unsplash.com/photo-1611821828952-3453ba0f9408?auto=format&fit=crop&w=800&q=80',
-    name: '2025-08-18_02',
-    createdAt: '2025-08-18',
-    tags: ['여름', '옴브레'],
-  },
-  {
-    id: 'img-5',
-    folderId: 'folder-3',
-    imageUrl: 'https://images.unsplash.com/photo-1599316329891-19df7fa9580d?auto=format&fit=crop&w=800&q=80',
-    name: '2025-07-05_01',
-    createdAt: '2025-07-05',
-    tags: ['미니멀'],
-  },
-];
 
 const SAMPLE_FEED_POSTS: FeedPost[] = [
   {
@@ -157,16 +83,21 @@ const SAMPLE_PROFILE: ProfileSummary = {
 
 const AppContent: React.FC = () => {
   const { t, language } = useTranslations();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, session } = useAuth();
 
   const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>(SAMPLE_FEED_POSTS);
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [profile, setProfile] = useState<ProfileSummary>(SAMPLE_PROFILE);
-  const [libraryFolders, setLibraryFolders] = useState<LibraryFolder[]>(SAMPLE_LIBRARY_FOLDERS);
-  const [libraryImages, setLibraryImages] = useState<LibraryImage[]>(SAMPLE_LIBRARY_IMAGES);
+  const [libraryFolders, setLibraryFolders] = useState<LibraryFolder[]>([]);
+  const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [createPostContext, setCreatePostContext] = useState<{ open: boolean; folderId: string | null; imageId: string | null }>({ open: false, folderId: null, imageId: null });
+  const [activeGroup, setActiveGroup] = useState<{ id: string; name: string } | null>(null);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [folderDetailLoading, setFolderDetailLoading] = useState(false);
+  const [folderDetailError, setFolderDetailError] = useState<string | null>(null);
 
   // Generator states (existing functionality)
   const [baseImage, setBaseImage] = useState<File | null>(null);
@@ -186,7 +117,13 @@ const AppContent: React.FC = () => {
     textPrompt: '',
   });
   const [activeResultIndex, setActiveResultIndex] = useState(0);
-  const [tagsByResult, setTagsByResult] = useState<Record<number, { tags: string[]; isLoading: boolean }>>({});
+  const [tagsByResult, setTagsByResult] = useState<Record<string, {
+    tags: string[];
+    isLoading: boolean;
+    isDirty: boolean;
+    isSaving: boolean;
+    error?: string;
+  }>>({});
   const loadingIntervalRef = useRef<number | null>(null);
 
   useEffect(
@@ -198,11 +135,43 @@ const AppContent: React.FC = () => {
     []
   );
 
-  const handleColorExtraction = useCallback(async (resultImage: string) => {
+  useEffect(() => {
+    if (!session?.access_token) {
+      setLibraryFolders([]);
+      setLibraryImages([]);
+      setSelectedFolderId(null);
+      setLibraryError(null);
+      setLibraryLoading(false);
+      setFolderDetailError(null);
+      setFolderDetailLoading(false);
+      return;
+    }
+
+    setLibraryLoading(true);
+    setLibraryError(null);
+
+    fetchLibraryFolders(session.access_token)
+      .then((folders) => {
+        setLibraryFolders(folders);
+        setSelectedFolderId((prev) => (prev && folders.some((folder) => folder.id === prev) ? prev : null));
+        setLibraryImages((prevImages) =>
+          prevImages.filter((image) => folders.some((folder) => folder.id === image.folderId))
+        );
+      })
+      .catch((error) => {
+        console.error('라이브러리 목록 조회 실패:', error);
+        setLibraryError(error instanceof Error ? error.message : '라이브러리를 불러오지 못했습니다.');
+      })
+      .finally(() => {
+        setLibraryLoading(false);
+      });
+  }, [session?.access_token]);
+
+  const handleColorExtraction = useCallback(async (previewUrl: string) => {
     setIsExtractingColors(true);
     setExtractedColors([]);
     try {
-      const [metaPart, base64Part] = resultImage.split(',');
+      const [metaPart, base64Part] = previewUrl.split(',');
       const mimeType = metaPart.split(':')[1]?.split(';')[0] ?? 'image/png';
       const colors = await extractDominantColors({ data: base64Part, mimeType });
       setExtractedColors(colors);
@@ -213,31 +182,257 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  const handleTagGeneration = useCallback(
-    async (resultImage: string, index: number) => {
+  const syncLibraryWithAsset = useCallback((asset: UploadedAsset, groupInfo: { id: string; name: string }) => {
+    const createdAt = asset.createdAt ?? new Date().toISOString();
+    const createdDate = createdAt.slice(0, 10);
+    let isNewAsset = false;
+
+    setLibraryImages((prev) => {
+      const exists = prev.some((image) => image.id === asset.id);
+      isNewAsset = !exists;
+      const withoutCurrent = prev.filter((image) => image.id !== asset.id);
+      const mapped: LibraryImage = {
+        id: asset.id,
+        folderId: asset.groupId,
+        imageUrl: asset.imageUrl,
+        name: asset.name,
+        createdAt: createdDate,
+        tags: asset.tags ?? [],
+        storagePath: asset.storagePath,
+        parentAssetId: asset.parentAssetId ?? null,
+      };
+      return [mapped, ...withoutCurrent];
+    });
+
+    setLibraryFolders((prev) => {
+      const index = prev.findIndex((folder) => folder.id === groupInfo.id);
+
+      if (index === -1) {
+        const newFolder: LibraryFolder = {
+          id: groupInfo.id,
+          name: groupInfo.name,
+          description: null,
+          createdAt: createdDate,
+          imageCount: 1,
+          tags: asset.tags ?? [],
+          isFavorite: false,
+          thumbnails: [asset.imageUrl],
+        };
+        return [newFolder, ...prev];
+      }
+
+      const folder = prev[index];
+      const thumbnails = [asset.imageUrl, ...folder.thumbnails.filter((url) => url !== asset.imageUrl)].slice(0, 4);
+
+      const next = [...prev];
+      next[index] = {
+        ...folder,
+        name: groupInfo.name,
+        imageCount: folder.imageCount + (isNewAsset ? 1 : 0),
+        thumbnails,
+        tags: folder.tags.length > 0 ? folder.tags : asset.tags ?? [],
+      };
+
+      return next;
+    });
+  }, []);
+
+  const mapToGeneratedResult = useCallback((asset: UploadedAsset, previewUrl: string): GeneratedResult => (
+    {
+      previewUrl,
+      asset: {
+        id: asset.id,
+        groupId: asset.groupId,
+        imageUrl: asset.imageUrl,
+        storagePath: asset.storagePath,
+        name: asset.name,
+        createdAt: asset.createdAt ?? null,
+        tags: asset.tags,
+        parentAssetId: asset.parentAssetId ?? null,
+      },
+    }
+  ), []);
+
+  const handleTagsChange = useCallback((assetId: string, newTags: string[]) => {
+    setTagsByResult((prev) => ({
+      ...prev,
+      [assetId]: {
+        tags: newTags,
+        isLoading: false,
+        isDirty: true,
+        isSaving: false,
+        error: undefined,
+      },
+    }));
+
+    setAppState((prevState) => {
+      if (prevState.status !== AppStatus.SUCCESS) {
+        return prevState;
+      }
+
+      const updatedResults = prevState.results.map((result) =>
+        result.asset.id === assetId
+          ? { ...result, asset: { ...result.asset, tags: newTags } }
+          : result
+      );
+
+      return { ...prevState, results: updatedResults };
+    });
+  }, []);
+
+  const handleSaveTags = useCallback(
+    async (assetId: string) => {
+      const entry = tagsByResult[assetId];
+      if (!entry) {
+        return;
+      }
+
+      if (!session?.access_token) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+
+      const nextTags = entry.tags;
+      const previousImages = libraryImages;
+      const previousFolders = libraryFolders;
+      const previousResultTags = (() => {
+        if (appState.status !== AppStatus.SUCCESS) {
+          return [] as string[];
+        }
+        const result = appState.results.find((item) => item.asset.id === assetId);
+        return result?.asset.tags ?? [];
+      })();
+      const targetImage = libraryImages.find((image) => image.id === assetId);
+      const folderId = targetImage?.folderId ?? null;
+
       setTagsByResult((prev) => ({
         ...prev,
-        [index]: { tags: prev[index]?.tags ?? [], isLoading: true },
+        [assetId]: {
+          ...prev[assetId],
+          isSaving: true,
+          error: undefined,
+        },
       }));
 
       try {
-        const [metaPart, base64Part] = resultImage.split(',');
-        const mimeType = metaPart.split(':')[1]?.split(';')[0] ?? 'image/png';
-        const tags = await generateTagsForImage({ data: base64Part, mimeType }, language);
+        await updateAsset(session.access_token, assetId, { tags: nextTags });
 
         setTagsByResult((prev) => ({
           ...prev,
-          [index]: { tags, isLoading: false },
+          [assetId]: {
+            ...prev[assetId],
+            isSaving: false,
+            isDirty: false,
+            error: undefined,
+          },
         }));
+
+        setAppState((prevState) => {
+          if (prevState.status !== AppStatus.SUCCESS) {
+            return prevState;
+          }
+
+          const updatedResults = prevState.results.map((result) =>
+            result.asset.id === assetId
+              ? { ...result, asset: { ...result.asset, tags: nextTags } }
+              : result
+          );
+
+          return { ...prevState, results: updatedResults };
+        });
+
+        let updatedImages: LibraryImage[] = [];
+        setLibraryImages((prev) => {
+          const next = prev.map((image) =>
+            image.id === assetId ? { ...image, tags: nextTags } : image
+          );
+          updatedImages = next;
+          return next;
+        });
+
+        if (folderId) {
+          const aggregatedTags = Array.from(
+            new Set(
+              updatedImages
+                .filter((image) => image.folderId === folderId)
+                .flatMap((image) => image.tags)
+            )
+          );
+
+          setLibraryFolders((prev) =>
+            prev.map((folder) =>
+              folder.id === folderId ? { ...folder, tags: aggregatedTags } : folder
+            )
+          );
+        }
+      } catch (error) {
+        console.error('태그 저장 실패:', error);
+        const message = error instanceof Error ? error.message : '태그를 저장하지 못했습니다.';
+
+        setTagsByResult((prev) => ({
+          ...prev,
+          [assetId]: {
+            ...prev[assetId],
+            isSaving: false,
+            isDirty: true,
+            error: message,
+          },
+        }));
+
+        setAppState((prevState) => {
+          if (prevState.status !== AppStatus.SUCCESS) {
+            return prevState;
+          }
+
+          const updatedResults = prevState.results.map((result) =>
+            result.asset.id === assetId
+              ? { ...result, asset: { ...result.asset, tags: previousResultTags } }
+              : result
+          );
+
+          return { ...prevState, results: updatedResults };
+        });
+
+        setLibraryImages(previousImages);
+        setLibraryFolders(previousFolders);
+      }
+    },
+    [appState, libraryImages, libraryFolders, session?.access_token, tagsByResult]
+  );
+
+  const handleTagGeneration = useCallback(
+    async (result: { previewUrl: string; assetId: string }) => {
+      setTagsByResult((prev) => ({
+        ...prev,
+        [result.assetId]: {
+          tags: prev[result.assetId]?.tags ?? [],
+          isLoading: true,
+          isDirty: prev[result.assetId]?.isDirty ?? false,
+          isSaving: prev[result.assetId]?.isSaving ?? false,
+          error: undefined,
+        },
+      }));
+
+      try {
+        const [metaPart, base64Part] = result.previewUrl.split(',');
+        const mimeType = metaPart.split(':')[1]?.split(';')[0] ?? 'image/png';
+        const tags = await generateTagsForImage({ data: base64Part, mimeType }, language);
+        handleTagsChange(result.assetId, tags);
       } catch (error) {
         console.error('Failed to generate tags:', error);
         setTagsByResult((prev) => ({
           ...prev,
-          [index]: { tags: prev[index]?.tags ?? [], isLoading: false },
+          [result.assetId]: {
+            tags: prev[result.assetId]?.tags ?? [],
+            isLoading: false,
+            isDirty: prev[result.assetId]?.isDirty ?? false,
+            isSaving: prev[result.assetId]?.isSaving ?? false,
+            error: prev[result.assetId]?.error,
+          },
         }));
       }
     },
-    [language]
+    [language, handleTagsChange]
   );
 
   useEffect(() => {
@@ -252,7 +447,7 @@ const AppContent: React.FC = () => {
       return;
     }
 
-    handleColorExtraction(currentResult);
+    handleColorExtraction(currentResult.previewUrl);
   }, [appState, activeResultIndex, handleColorExtraction]);
 
   useEffect(() => {
@@ -261,11 +456,16 @@ const AppContent: React.FC = () => {
     }
 
     const currentResult = appState.results[activeResultIndex];
-    if (!currentResult || tagsByResult[activeResultIndex]) {
+    if (!currentResult) {
       return;
     }
 
-    handleTagGeneration(currentResult, activeResultIndex);
+    const assetId = currentResult.asset.id;
+    if (tagsByResult[assetId]) {
+      return;
+    }
+
+    handleTagGeneration({ previewUrl: currentResult.previewUrl, assetId });
   }, [appState, activeResultIndex, handleTagGeneration, tagsByResult]);
 
   const handleInitialGenerate = useCallback(async () => {
@@ -299,7 +499,25 @@ const AppContent: React.FC = () => {
       );
 
       const resultUrl = `data:image/png;base64,${generatedImageBase64}`;
-      setAppState({ status: AppStatus.SUCCESS, results: [resultUrl] });
+
+      if (!session?.access_token) {
+        throw new Error('로그인이 필요합니다.');
+      }
+
+      const backendResponse = await BackendService.generateNailArt(
+        {
+          prompt,
+          mode: generationMode,
+          generatedImage: { data: generatedImageBase64, mimeType: 'image/png' },
+        },
+        session.access_token
+      );
+
+      const generatedResult = mapToGeneratedResult(backendResponse.asset, resultUrl);
+
+      setActiveGroup({ id: backendResponse.group.id, name: backendResponse.group.name });
+      syncLibraryWithAsset(backendResponse.asset, backendResponse.group);
+      setAppState({ status: AppStatus.SUCCESS, results: [generatedResult] });
       setActiveResultIndex(0);
       setTagsByResult({});
     } catch (error) {
@@ -318,7 +536,7 @@ const AppContent: React.FC = () => {
         clearInterval(loadingIntervalRef.current);
       }
     }
-  }, [baseImage, styleImage, prompt, generationMode, t]);
+  }, [baseImage, styleImage, prompt, generationMode, t, mapToGeneratedResult, syncLibraryWithAsset]);
 
   const performRegeneration = useCallback(
     async (regenerationPrompt: string) => {
@@ -328,7 +546,7 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      const baseImageToRegen = currentResults[activeResultIndex];
+      const baseResult = currentResults[activeResultIndex];
       setAppState({ status: AppStatus.LOADING });
       setExtractedColors([]);
 
@@ -342,7 +560,7 @@ const AppContent: React.FC = () => {
       }, 2500);
 
       try {
-        const [metaPart, base64Part] = baseImageToRegen.split(',');
+        const [metaPart, base64Part] = baseResult.previewUrl.split(',');
         const mimeType = metaPart.split(':')[1]?.split(';')[0] ?? 'image/png';
 
         const generatedImageBase64 = await generateNailArt(
@@ -353,9 +571,28 @@ const AppContent: React.FC = () => {
         );
 
         const resultUrl = `data:image/png;base64,${generatedImageBase64}`;
-        const newResults = [...currentResults, resultUrl];
+
+        if (!session?.access_token) {
+          throw new Error('로그인이 필요합니다.');
+        }
+
+        const backendResponse = await BackendService.generateNailArt(
+          {
+            prompt: regenerationPrompt,
+            mode: generationMode,
+            generatedImage: { data: generatedImageBase64, mimeType },
+            groupId: activeGroup?.id,
+            parentAssetId: baseResult.asset.id,
+          },
+          session.access_token
+        );
+
+        const generatedResult = mapToGeneratedResult(backendResponse.asset, resultUrl);
+        const newResults = [...currentResults, generatedResult];
         const nextIndex = newResults.length - 1;
 
+        setActiveGroup({ id: backendResponse.group.id, name: backendResponse.group.name });
+        syncLibraryWithAsset(backendResponse.asset, backendResponse.group);
         setAppState({ status: AppStatus.SUCCESS, results: newResults });
         setActiveResultIndex(nextIndex);
       } catch (error) {
@@ -375,7 +612,48 @@ const AppContent: React.FC = () => {
         }
       }
     },
-    [appState, activeResultIndex, t]
+    [appState, activeResultIndex, t, activeGroup, generationMode, mapToGeneratedResult, syncLibraryWithAsset]
+  );
+
+  const handleSelectFolder = useCallback(
+    async (folderId: string) => {
+      if (!session?.access_token) {
+        return;
+      }
+
+      setSelectedFolderId(folderId);
+      setFolderDetailLoading(true);
+      setFolderDetailError(null);
+
+      try {
+        const { folder, assets } = await fetchLibraryFolderDetail(session.access_token, folderId);
+
+        setLibraryFolders((prev) => {
+          const index = prev.findIndex((item) => item.id === folderId);
+          if (index === -1) {
+            return [folder, ...prev];
+          }
+
+          const next = [...prev];
+          next[index] = {
+            ...next[index],
+            ...folder,
+          };
+          return next;
+        });
+
+        setLibraryImages((prev) => {
+          const filtered = prev.filter((image) => image.folderId !== folderId);
+          return [...filtered, ...assets];
+        });
+      } catch (error) {
+        console.error('폴더 상세 조회 실패:', error);
+        setFolderDetailError(error instanceof Error ? error.message : '폴더 정보를 불러오지 못했습니다.');
+      } finally {
+        setFolderDetailLoading(false);
+      }
+    },
+    [session?.access_token]
   );
 
   const handleApplyStagedChanges = useCallback(() => {
@@ -430,24 +708,6 @@ const AppContent: React.FC = () => {
     return Object.fromEntries(libraryFolders.map((folder) => [folder.id, folder]));
   }, [libraryFolders]);
 
-  const rebuildFolders = useCallback(
-    (images: LibraryImage[], folders: LibraryFolder[]): LibraryFolder[] => {
-      return folders.map((folder) => {
-        const related = images.filter((image) => image.folderId === folder.id);
-        return {
-          ...folder,
-          imageCount: related.length,
-          thumbnails: related.slice(0, 4).map((image) => image.imageUrl),
-        };
-      });
-    },
-    []
-  );
-
-  useEffect(() => {
-    setLibraryFolders((prev) => rebuildFolders(libraryImages, prev));
-  }, [libraryImages, rebuildFolders]);
-
   const openCreatePost = (folderId: string | null, imageId: string | null) => {
     setCreatePostContext({ open: true, folderId, imageId });
     setActiveTab('library');
@@ -481,40 +741,263 @@ const AppContent: React.FC = () => {
     setActiveTab('home');
   };
 
-  const handleToggleFavoriteFolder = (folderId: string) => {
+  const handleToggleFavoriteFolder = async (folderId: string) => {
+    if (!session?.access_token) {
+      return;
+    }
+
+    const folder = libraryFolders.find((item) => item.id === folderId);
+    const nextState = folder ? !folder.isFavorite : true;
+
     setLibraryFolders((prev) =>
-      prev.map((folder) =>
-        folder.id === folderId ? { ...folder, isFavorite: !folder.isFavorite } : folder
+      prev.map((item) =>
+        item.id === folderId ? { ...item, isFavorite: nextState } : item
       )
     );
+
+    try {
+      await toggleFavoriteFolder(session.access_token, folderId, nextState);
+    } catch (error) {
+      console.error('즐겨찾기 변경 실패:', error);
+      setLibraryFolders((prev) =>
+        prev.map((item) =>
+          item.id === folderId ? { ...item, isFavorite: !nextState } : item
+        )
+      );
+      alert('즐겨찾기를 변경하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
   };
 
-  const handleDeleteFolder = (folderId: string) => {
+  const handleDeleteFolder = async (folderId: string) => {
     if (!window.confirm('폴더를 삭제하면 포함된 이미지가 모두 삭제됩니다. 계속할까요?')) {
       return;
     }
-    setLibraryImages((prevImages) => {
-      const updatedImages = prevImages.filter((image) => image.folderId !== folderId);
-      setLibraryFolders((prevFolders) =>
-        rebuildFolders(
-          updatedImages,
-          prevFolders.filter((folder) => folder.id !== folderId)
-        )
-      );
-      return updatedImages;
-    });
+    if (!session?.access_token) {
+      return;
+    }
+
+    const snapshotFolders = libraryFolders;
+    const snapshotImages = libraryImages;
+
+    setLibraryImages((prevImages) => prevImages.filter((image) => image.folderId !== folderId));
+    setLibraryFolders((prevFolders) => prevFolders.filter((folder) => folder.id !== folderId));
     setSelectedFolderId(null);
+
+    try {
+      await deleteFolder(session.access_token, folderId);
+    } catch (error) {
+      console.error('폴더 삭제 실패:', error);
+      setLibraryFolders(snapshotFolders);
+      setLibraryImages(snapshotImages);
+      alert('폴더를 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
   };
 
-  const handleDeleteImage = (imageId: string) => {
+  const handleDeleteImage = async (imageId: string) => {
     if (!window.confirm('이미지를 삭제하시겠습니까?')) {
       return;
     }
+    if (!session?.access_token) {
+      return;
+    }
+    const snapshotFolders = libraryFolders;
+    const snapshotImages = libraryImages;
+    let removedImage: LibraryImage | undefined;
+    let updatedImages: LibraryImage[] = [];
+
     setLibraryImages((prev) => {
-      const updated = prev.filter((image) => image.id !== imageId);
-      setLibraryFolders((folders) => rebuildFolders(updated, folders));
-      return updated;
+      removedImage = prev.find((image) => image.id === imageId);
+      updatedImages = prev.filter((image) => image.id !== imageId);
+      return updatedImages;
     });
+
+    if (removedImage) {
+      setLibraryFolders((prevFolders) =>
+        prevFolders.map((folder) => {
+          if (folder.id !== removedImage?.folderId) {
+            return folder;
+          }
+          const relatedImages = updatedImages
+            .filter((image) => image.folderId === folder.id)
+            .slice(0, 4)
+            .map((image) => image.imageUrl);
+          return {
+            ...folder,
+            imageCount: Math.max(0, folder.imageCount - 1),
+            thumbnails: relatedImages,
+          };
+        })
+      );
+    }
+
+    try {
+      await deleteAsset(session.access_token, imageId);
+    } catch (error) {
+      console.error('이미지 삭제 실패:', error);
+      alert('이미지를 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.');
+      setLibraryImages(snapshotImages);
+      setLibraryFolders(snapshotFolders);
+    }
+  };
+
+  const handleRenameFolder = async (folder: LibraryFolder) => {
+    if (!session?.access_token) {
+      return;
+    }
+
+    const newName = window.prompt('새 폴더 이름을 입력하세요.', folder.name)?.trim();
+    if (!newName || newName === folder.name) {
+      return;
+    }
+
+    const previousName = folder.name;
+    setLibraryFolders((prev) =>
+      prev.map((item) => (item.id === folder.id ? { ...item, name: newName } : item))
+    );
+
+    try {
+      await updateFolder(session.access_token, folder.id, { name: newName });
+    } catch (error) {
+      console.error('폴더 이름 변경 실패:', error);
+      setLibraryFolders((prev) =>
+        prev.map((item) => (item.id === folder.id ? { ...item, name: previousName } : item))
+      );
+      alert('폴더 이름을 수정하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  };
+
+  const handleEditFolderTags = async (folder: LibraryFolder) => {
+    if (!session?.access_token) {
+      return;
+    }
+
+    const raw = window.prompt('태그를 쉼표(,)로 구분하여 입력하세요.', folder.tags.join(', '));
+    if (raw === null) {
+      return;
+    }
+
+    const parsed = raw
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+    const previousTags = folder.tags;
+    setLibraryFolders((prev) =>
+      prev.map((item) => (item.id === folder.id ? { ...item, tags: parsed } : item))
+    );
+
+    try {
+      await updateFolder(session.access_token, folder.id, { tags: parsed });
+    } catch (error) {
+      console.error('폴더 태그 변경 실패:', error);
+      setLibraryFolders((prev) =>
+        prev.map((item) => (item.id === folder.id ? { ...item, tags: previousTags } : item))
+      );
+      alert('폴더 태그를 수정하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  };
+
+  const handleRenameImage = async (image: LibraryImage) => {
+    if (!session?.access_token) {
+      return;
+    }
+
+    const newName = window.prompt('새 이미지 이름을 입력하세요.', image.name)?.trim();
+    if (!newName || newName === image.name) {
+      return;
+    }
+
+    const previousName = image.name;
+    setLibraryImages((prev) =>
+      prev.map((item) => (item.id === image.id ? { ...item, name: newName } : item))
+    );
+
+    try {
+      await updateAsset(session.access_token, image.id, { name: newName });
+    } catch (error) {
+      console.error('이미지 이름 수정 실패:', error);
+      setLibraryImages((prev) =>
+        prev.map((item) => (item.id === image.id ? { ...item, name: previousName } : item))
+      );
+      alert('이미지 이름을 수정하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  };
+
+  const handleEditImageTags = async (image: LibraryImage) => {
+    if (!session?.access_token) {
+      return;
+    }
+
+    const raw = window.prompt('태그를 쉼표(,)로 구분하여 입력하세요.', image.tags.join(', '));
+    if (raw === null) {
+      return;
+    }
+
+    const parsed = raw
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+    const previousTags = image.tags;
+    const previousFolder = libraryFolders.find((folder) => folder.id === image.folderId);
+    const previousFolderTags = previousFolder?.tags ?? [];
+    setTagsByResult((prev) => ({
+      ...prev,
+      [image.id]: {
+        tags: parsed,
+        isLoading: false,
+        isDirty: false,
+        isSaving: false,
+        error: undefined,
+      },
+    }));
+    let updatedImages: LibraryImage[] = [];
+    setLibraryImages((prev) => {
+      const next = prev.map((item) => (item.id === image.id ? { ...item, tags: parsed } : item));
+      updatedImages = next;
+      return next;
+    });
+
+    setLibraryFolders((prev) =>
+      prev.map((folder) => {
+        if (folder.id !== image.folderId) {
+          return folder;
+        }
+        const aggregatedTags = Array.from(
+          new Set(
+            updatedImages
+              .filter((item) => item.folderId === image.folderId)
+              .flatMap((item) => item.tags)
+          )
+        );
+        return { ...folder, tags: aggregatedTags };
+      })
+    );
+
+    try {
+      await updateAsset(session.access_token, image.id, { tags: parsed });
+    } catch (error) {
+      console.error('이미지 태그 수정 실패:', error);
+      setTagsByResult((prev) => ({
+        ...prev,
+        [image.id]: {
+          tags: previousTags,
+          isLoading: false,
+          isDirty: false,
+          isSaving: false,
+          error: undefined,
+        },
+      }));
+      setLibraryImages((prev) =>
+        prev.map((item) => (item.id === image.id ? { ...item, tags: previousTags } : item))
+      );
+      setLibraryFolders((prev) =>
+        prev.map((folder) =>
+          folder.id === image.folderId ? { ...folder, tags: previousFolderTags } : folder
+        )
+      );
+      alert('이미지 태그를 수정하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
   };
 
   const handlePrivacyToggle = () => {
@@ -535,10 +1018,19 @@ const AppContent: React.FC = () => {
     );
   };
 
-  const renderGeneratorView = () => (
-    <div className="pb-24">
-      <main className="container mx-auto px-4 py-8">
-        <div className="mx-auto max-w-4xl rounded-xl border border-gray-200/80 bg-white p-6 shadow-sm md:p-10">
+  const renderGeneratorView = () => {
+    const activeResult = appState.status === AppStatus.SUCCESS ? appState.results[activeResultIndex] : null;
+    const activeTagsState = activeResult ? tagsByResult[activeResult.asset.id] : undefined;
+    const activeTags = activeTagsState?.tags ?? activeResult?.asset.tags ?? [];
+    const activeTagsLoading = activeTagsState?.isLoading ?? false;
+    const activeTagsDirty = activeTagsState?.isDirty ?? false;
+    const activeTagsSaving = activeTagsState?.isSaving ?? false;
+    const activeTagsError = activeTagsState?.error ?? null;
+
+    return (
+      <div className="pb-24">
+        <main className="container mx-auto px-4 py-8">
+          <div className="mx-auto max-w-4xl rounded-xl border border-gray-200/80 bg-white p-6 shadow-sm md:p-10">
           <InspirationCarousel />
 
           <div className="mb-8">
@@ -635,22 +1127,25 @@ const AppContent: React.FC = () => {
             onApplyChanges={handleApplyStagedChanges}
             activeResultIndex={activeResultIndex}
             onSelectResult={setActiveResultIndex}
-            tags={tagsByResult[activeResultIndex]?.tags ?? []}
-            isGeneratingTags={tagsByResult[activeResultIndex]?.isLoading ?? false}
+            tags={activeTags}
+            isGeneratingTags={activeTagsLoading}
+            isDirty={activeTagsDirty}
+            isSavingTags={activeTagsSaving}
+            saveError={activeTagsError}
             onTagsChange={(newTags) => {
-              setTagsByResult((prev) => ({
-                ...prev,
-                [activeResultIndex]: {
-                  ...(prev[activeResultIndex] ?? { isLoading: false }),
-                  tags: newTags,
-                },
-              }));
+              if (!activeResult) return;
+              handleTagsChange(activeResult.asset.id, newTags);
+            }}
+            onSaveTags={() => {
+              if (!activeResult) return;
+              void handleSaveTags(activeResult.asset.id);
             }}
           />
         </div>
       </main>
     </div>
-  );
+    );
+  };
 
   const imagesForCreatePost = useMemo(() => {
     return libraryImages.map((image) => ({
@@ -706,25 +1201,43 @@ const AppContent: React.FC = () => {
       {activeTab === 'library' && !createPostContext.open && !selectedFolder && (
         <LibraryView
           folders={libraryFolders}
-          onSelectFolder={(folderId) => setSelectedFolderId(folderId)}
+          onSelectFolder={handleSelectFolder}
           onToggleFavorite={handleToggleFavoriteFolder}
           onPostFolder={(folderId) => openCreatePost(folderId, null)}
+          isLoading={libraryLoading}
+          emptyMessage="아직 생성한 폴더가 없습니다. 첫 이미지를 생성해보세요."
+          errorMessage={libraryError}
         />
       )}
 
       {activeTab === 'library' && selectedFolder && !createPostContext.open && (
-        <FolderDetailView
-          folderName={selectedFolder.name}
-          createdAt={selectedFolder.createdAt}
-          tags={selectedFolder.tags}
-          images={folderImages}
-          onBack={() => setSelectedFolderId(null)}
-          onDeleteFolder={() => handleDeleteFolder(selectedFolder.id)}
-          onRenameFolder={() => alert('폴더 이름 변경 기능은 추후 연결될 예정입니다.')}
-          onUpdateTags={() => alert('태그 편집 기능은 추후 연결될 예정입니다.')}
-          onShareImage={(imageId) => openCreatePost(selectedFolder.id, imageId)}
-          onDeleteImage={handleDeleteImage}
-        />
+        folderDetailLoading ? (
+          <div className="mx-auto max-w-5xl px-4 py-12 text-center text-sm text-gray-500">
+            폴더를 불러오는 중입니다...
+          </div>
+        ) : folderDetailError ? (
+          <div className="mx-auto max-w-5xl px-4 py-12 text-center text-sm text-rose-600">
+            {folderDetailError}
+          </div>
+        ) : (
+          <FolderDetailView
+            folderName={selectedFolder.name}
+            createdAt={selectedFolder.createdAt}
+            tags={selectedFolder.tags}
+            images={folderImages}
+            onBack={() => {
+              setSelectedFolderId(null);
+              setFolderDetailError(null);
+            }}
+            onDeleteFolder={() => handleDeleteFolder(selectedFolder.id)}
+            onRenameFolder={() => handleRenameFolder(selectedFolder)}
+            onUpdateTags={() => handleEditFolderTags(selectedFolder)}
+            onShareImage={(imageId) => openCreatePost(selectedFolder.id, imageId)}
+            onDeleteImage={handleDeleteImage}
+            onRenameImage={handleRenameImage}
+            onEditImageTags={handleEditImageTags}
+          />
+        )
       )}
 
       {activeTab === 'library' && createPostContext.open && (

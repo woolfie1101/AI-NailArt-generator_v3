@@ -1,6 +1,6 @@
 // API 응답 타입 정의
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -90,16 +90,125 @@ export interface LibraryAssetResponse {
   parentAssetId: string | null;
 }
 
+export type VisibilityType = 'public' | 'followers' | 'private';
+
+export interface FeedAuthorSummary {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  isFollowed: boolean;
+  isFollowingMe: boolean;
+  followersCount: number;
+  followingCount: number;
+}
+
+export interface FeedAssetSummary {
+  id: string;
+  name: string;
+  tags: string[];
+  imageUrl: string;
+  storagePath: string;
+  createdAt: string | null;
+}
+
+export interface FeedPostSummary {
+  id: string;
+  caption: string | null;
+  hashtags: string[];
+  visibility: VisibilityType;
+  likeCount: number;
+  commentCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+  author: FeedAuthorSummary;
+  asset: FeedAssetSummary;
+  isLiked: boolean;
+  isSaved: boolean;
+  canEdit: boolean;
+}
+
+export interface FeedCommentSummary {
+  id: string;
+  message: string;
+  createdAt: string | null;
+  author: FeedAuthorSummary;
+  canDelete: boolean;
+}
+
+export interface FeedResponse {
+  success: boolean;
+  posts: FeedPostSummary[];
+  nextCursor: string | null;
+}
+
+export interface FeedPostDetailResponse {
+  success: boolean;
+  post: FeedPostSummary;
+  comments: FeedCommentSummary[];
+  nextCursor: string | null;
+}
+
+export interface FeedPostPublishRequest {
+  assetId: string;
+  caption?: string | null;
+  visibility?: VisibilityType;
+  hashtags?: string[];
+}
+
+export interface FeedPostPublishResponse {
+  success: boolean;
+  post: FeedPostSummary;
+}
+
+export interface FeedPostActionResponse {
+  success: boolean;
+  post: FeedPostSummary;
+}
+
+export interface FeedCommentActionResponse {
+  success: boolean;
+  comment: FeedCommentSummary;
+  commentCount: number;
+}
+
+export interface FeedCommentDeleteResponse {
+  success: boolean;
+  commentId: string;
+  commentCount: number;
+}
+
+export interface FollowActionResponse {
+  success: boolean;
+  author: FeedAuthorSummary;
+  isFollowing: boolean;
+}
+
+export interface ImagePayload {
+  data: string;
+  mimeType: string;
+}
+
 export interface GenerateRequest {
-  imagePath: string;
-  prompt?: string;
-  style?: string;
+  groupId?: string;
+  prompt: string;
+  style?: string | null;
+  mode?: 'inspiration' | 'tryon';
+  baseImage?: ImagePayload;
+  styleImage?: ImagePayload | null;
+  generatedImage?: ImagePayload;
+  parentAssetId?: string | null;
+  name?: string;
+  tags?: string[];
 }
 
 export interface GenerateResponse {
   success: boolean;
-  result: string;
-  timestamp: string;
+  asset: LibraryAssetResponse;
+  group: {
+    id: string;
+    name: string;
+    isNew: boolean;
+  };
 }
 
 // 에러 타입
@@ -107,5 +216,5 @@ export interface ApiError {
   success: false;
   error: string;
   code?: string;
-  details?: any;
+  details?: unknown;
 }

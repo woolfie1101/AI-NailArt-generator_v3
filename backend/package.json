@@ -5,23 +5,28 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "next start -p ${PORT:-3001}",
     "lint": "eslint",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.17.0",
     "@supabase/supabase-js": "^2.57.4",
     "@types/cors": "^2.8.19",
     "@types/multer": "^2.0.0",
     "axios": "^1.12.1",
+    "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
+    "lucide-react": "^0.446.0",
     "multer": "^2.0.2",
     "next": "15.5.3",
     "openai": "^5.20.2",
+    "prop-types": "^15.8.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-responsive-masonry": "^2.4.3",
     "sharp": "^0.34.3"
   },
   "devDependencies": {

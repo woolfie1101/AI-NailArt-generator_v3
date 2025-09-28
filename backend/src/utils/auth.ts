@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '../lib/supabase';
 
 interface AuthSuccess {
   user: User;
@@ -15,6 +15,12 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthSuc
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return {
       response: NextResponse.json({ error: '인증 토큰이 필요합니다.' }, { status: 401 }),
+    };
+  }
+
+  if (!supabaseAdmin) {
+    return {
+      response: NextResponse.json({ error: '서버 설정 오류: Supabase admin 클라이언트를 사용할 수 없습니다.' }, { status: 500 }),
     };
   }
 

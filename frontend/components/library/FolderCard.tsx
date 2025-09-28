@@ -94,7 +94,13 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folder, onClick, onToggl
         <div className="flex items-start justify-between">
           <div>
             <p className="text-left text-sm font-semibold text-gray-900">{folder.name}</p>
-            <p className="text-xs text-gray-500">{folder.createdAt}</p>
+            <p className="text-xs text-gray-500">{new Date(folder.createdAt).toLocaleDateString('ko-KR', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</p>
           </div>
           <button
             type="button"

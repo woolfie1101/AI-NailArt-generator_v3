@@ -56,16 +56,23 @@ function normalizePath(path: string) {
 
 function resolveTabFromLocation(pathname: string): BottomNavTab {
   const normalized = normalizePath(pathname);
+  if (normalized.startsWith('/library')) {
+    return 'library';
+  }
   switch (normalized) {
     case '/create':
       return 'create';
-    case '/library':
-      return 'library';
     case '/profile':
       return 'profile';
     default:
       return 'home';
   }
+}
+
+function extractFolderIdFromPath(pathname: string): string | null {
+  const normalized = normalizePath(pathname);
+  const match = normalized.match(/^\/library\/folder\/(.+)$/);
+  return match ? match[1] : null;
 }
 
 const SAMPLE_FEED_POSTS: FeedPost[] = [
@@ -120,7 +127,9 @@ const AppContent: React.FC = () => {
   const [profile, setProfile] = useState<ProfileSummary>(SAMPLE_PROFILE);
   const [libraryFolders, setLibraryFolders] = useState<LibraryFolder[]>([]);
   const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : extractFolderIdFromPath(window.location.pathname)
+  );
   const [createPostContext, setCreatePostContext] = useState<{ open: boolean; folderId: string | null; imageId: string | null }>({ open: false, folderId: null, imageId: null });
   const [activeGroup, setActiveGroup] = useState<{ id: string; name: string } | null>(null);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -146,7 +155,7 @@ const AppContent: React.FC = () => {
     textPrompt: '',
   });
   const [activeResultIndex, setActiveResultIndex] = useState(0);
-  const [tagsByResult, setTagsByResult] = useState<Record<string, {
+  const [folderTags, setFolderTags] = useState<Record<string, {
     tags: string[];
     isLoading: boolean;
     isDirty: boolean;
@@ -186,6 +195,42 @@ const AppContent: React.FC = () => {
         setLibraryImages((prevImages) =>
           prevImages.filter((image) => folders.some((folder) => folder.id === image.folderId))
         );
+
+        // URL에서 폴더 ID를 확인하고 해당 폴더 로드
+        if (typeof window !== 'undefined') {
+          const folderIdFromUrl = extractFolderIdFromPath(window.location.pathname);
+          if (folderIdFromUrl && folders.some((folder) => folder.id === folderIdFromUrl)) {
+            // 직접 폴더 상세 조회 실행 (handleSelectFolder 호출 시 무한 루프 방지)
+            setSelectedFolderId(folderIdFromUrl);
+            setFolderDetailLoading(true);
+            setFolderDetailError(null);
+
+            fetchLibraryFolderDetail(session.access_token, folderIdFromUrl)
+              .then(({ folder, assets }) => {
+                setLibraryFolders((prev) => {
+                  const index = prev.findIndex((item) => item.id === folderIdFromUrl);
+                  if (index === -1) {
+                    return [folder, ...prev];
+                  }
+                  const next = [...prev];
+                  next[index] = { ...next[index], ...folder };
+                  return next;
+                });
+
+                setLibraryImages((prev) => {
+                  const filtered = prev.filter((image) => image.folderId !== folderIdFromUrl);
+                  return [...filtered, ...assets];
+                });
+              })
+              .catch((error) => {
+                console.error('폴더 상세 조회 실패:', error);
+                setFolderDetailError(error instanceof Error ? error.message : '폴더 정보를 불러오지 못했습니다.');
+              })
+              .finally(() => {
+                setFolderDetailLoading(false);
+              });
+          }
+        }
       })
       .catch((error) => {
         console.error('라이브러리 목록 조회 실패:', error);
@@ -213,7 +258,8 @@ const AppContent: React.FC = () => {
 
   const syncLibraryWithAsset = useCallback((asset: UploadedAsset, groupInfo: { id: string; name: string }) => {
     const createdAt = asset.createdAt ?? new Date().toISOString();
-    const createdDate = createdAt.slice(0, 10);
+    // 전체 datetime 유지 (시분초 포함)
+    const createdDate = createdAt.slice(0, 10); // 디스플레이용 날짜
     let isNewAsset = false;
 
     setLibraryImages((prev) => {
@@ -225,7 +271,7 @@ const AppContent: React.FC = () => {
         folderId: asset.groupId,
         imageUrl: asset.imageUrl,
         name: asset.name,
-        createdAt: createdDate,
+        createdAt: createdAt, // 전체 datetime 사용
         tags: asset.tags ?? [],
         storagePath: asset.storagePath,
         parentAssetId: asset.parentAssetId ?? null,
@@ -241,7 +287,7 @@ const AppContent: React.FC = () => {
           id: groupInfo.id,
           name: groupInfo.name,
           description: null,
-          createdAt: createdDate,
+          createdAt: createdAt, // 전체 datetime 사용
           imageCount: 1,
           tags: asset.tags ?? [],
           isFavorite: false,
@@ -282,10 +328,12 @@ const AppContent: React.FC = () => {
     }
   ), []);
 
-  const handleTagsChange = useCallback((assetId: string, newTags: string[]) => {
-    setTagsByResult((prev) => ({
+  const handleFolderTagsChange = useCallback((folderId: string, newTags: string[]) => {
+    console.log('handleFolderTagsChange called:', folderId, newTags);
+
+    setFolderTags((prev) => ({
       ...prev,
-      [assetId]: {
+      [folderId]: {
         tags: newTags,
         isLoading: false,
         isDirty: true,
@@ -294,150 +342,120 @@ const AppContent: React.FC = () => {
       },
     }));
 
-    setAppState((prevState) => {
-      if (prevState.status !== AppStatus.SUCCESS) {
-        return prevState;
-      }
+    // 폴더 정보 업데이트
+    setLibraryFolders((prev) =>
+      prev.map((folder) =>
+        folder.id === folderId ? { ...folder, tags: newTags } : folder
+      )
+    );
 
-      const updatedResults = prevState.results.map((result) =>
-        result.asset.id === assetId
-          ? { ...result, asset: { ...result.asset, tags: newTags } }
-          : result
-      );
-
-      return { ...prevState, results: updatedResults };
-    });
+    console.log('Folder tags updated in state');
   }, []);
 
-  const handleSaveTags = useCallback(
-    async (assetId: string) => {
-      const entry = tagsByResult[assetId];
+  const handleSaveFolderTags = useCallback(
+    async (folderId: string) => {
+      console.log('handleSaveFolderTags called for folder:', folderId);
+
+      const entry = folderTags[folderId];
+      console.log('Folder tags entry:', entry);
+
       if (!entry) {
+        console.log('No folder tags entry found');
         return;
       }
 
       if (!session?.access_token) {
+        console.log('No access token available');
         alert('로그인이 필요합니다.');
         return;
       }
 
       const nextTags = entry.tags;
-      const previousImages = libraryImages;
-      const previousFolders = libraryFolders;
-      const previousResultTags = (() => {
-        if (appState.status !== AppStatus.SUCCESS) {
-          return [] as string[];
-        }
-        const result = appState.results.find((item) => item.asset.id === assetId);
-        return result?.asset.tags ?? [];
-      })();
-      const targetImage = libraryImages.find((image) => image.id === assetId);
-      const folderId = targetImage?.folderId ?? null;
+      console.log('Tags to save:', nextTags);
 
-      setTagsByResult((prev) => ({
+      const previousFolders = libraryFolders;
+
+      setFolderTags((prev) => ({
         ...prev,
-        [assetId]: {
-          ...prev[assetId],
+        [folderId]: {
+          ...prev[folderId],
           isSaving: true,
           error: undefined,
         },
       }));
 
       try {
-        await updateAsset(session.access_token, assetId, { tags: nextTags });
+        console.log('Calling updateFolder API...');
+        await updateFolder(session.access_token, folderId, { tags: nextTags });
+        console.log('updateFolder API success');
 
-        setTagsByResult((prev) => ({
+        setFolderTags((prev) => ({
           ...prev,
-          [assetId]: {
-            ...prev[assetId],
+          [folderId]: {
+            ...prev[folderId],
             isSaving: false,
             isDirty: false,
             error: undefined,
           },
         }));
 
-        setAppState((prevState) => {
-          if (prevState.status !== AppStatus.SUCCESS) {
-            return prevState;
-          }
+        setLibraryFolders((prev) =>
+          prev.map((folder) =>
+            folder.id === folderId ? { ...folder, tags: nextTags } : folder
+          )
+        );
 
-          const updatedResults = prevState.results.map((result) =>
-            result.asset.id === assetId
-              ? { ...result, asset: { ...result.asset, tags: nextTags } }
-              : result
-          );
-
-          return { ...prevState, results: updatedResults };
-        });
-
-        let updatedImages: LibraryImage[] = [];
-        setLibraryImages((prev) => {
-          const next = prev.map((image) =>
-            image.id === assetId ? { ...image, tags: nextTags } : image
-          );
-          updatedImages = next;
-          return next;
-        });
-
-        if (folderId) {
-          const aggregatedTags = Array.from(
-            new Set(
-              updatedImages
-                .filter((image) => image.folderId === folderId)
-                .flatMap((image) => image.tags)
-            )
-          );
-
-          setLibraryFolders((prev) =>
-            prev.map((folder) =>
-              folder.id === folderId ? { ...folder, tags: aggregatedTags } : folder
-            )
-          );
-        }
+        console.log('Folder tags saved successfully');
       } catch (error) {
-        console.error('태그 저장 실패:', error);
+        console.error('폴더 태그 저장 실패:', error);
         const message = error instanceof Error ? error.message : '태그를 저장하지 못했습니다.';
 
-        setTagsByResult((prev) => ({
+        setFolderTags((prev) => ({
           ...prev,
-          [assetId]: {
-            ...prev[assetId],
+          [folderId]: {
+            ...prev[folderId],
             isSaving: false,
             isDirty: true,
             error: message,
           },
         }));
 
-        setAppState((prevState) => {
-          if (prevState.status !== AppStatus.SUCCESS) {
-            return prevState;
-          }
-
-          const updatedResults = prevState.results.map((result) =>
-            result.asset.id === assetId
-              ? { ...result, asset: { ...result.asset, tags: previousResultTags } }
-              : result
-          );
-
-          return { ...prevState, results: updatedResults };
-        });
-
-        setLibraryImages(previousImages);
         setLibraryFolders(previousFolders);
+        alert(`태그 저장 실패: ${message}`);
       }
     },
-    [appState, libraryImages, libraryFolders, session?.access_token, tagsByResult]
+    [folderTags, libraryFolders, session?.access_token]
   );
 
-  const handleTagGeneration = useCallback(
-    async (result: { previewUrl: string; assetId: string }) => {
-      setTagsByResult((prev) => ({
+  const handleFolderTagGeneration = useCallback(
+    async (result: { previewUrl: string; folderId: string }) => {
+      console.log('handleFolderTagGeneration called:', result.folderId);
+
+      // 이미 태그가 있는 폴더는 생성하지 않음
+      const existingFolder = libraryFolders.find(f => f.id === result.folderId);
+      console.log('existingFolder:', existingFolder);
+
+      if (existingFolder && existingFolder.tags.length > 0) {
+        console.log('Folder already has tags, skipping generation');
+        return;
+      }
+
+      // 이미 태그 생성 중인지 확인
+      const currentFolderTags = folderTags[result.folderId];
+      if (currentFolderTags?.isLoading) {
+        console.log('Tag generation already in progress, skipping');
+        return;
+      }
+
+      console.log('Starting tag generation for folder:', result.folderId);
+
+      setFolderTags((prev) => ({
         ...prev,
-        [result.assetId]: {
-          tags: prev[result.assetId]?.tags ?? [],
+        [result.folderId]: {
+          tags: prev[result.folderId]?.tags ?? [],
           isLoading: true,
-          isDirty: prev[result.assetId]?.isDirty ?? false,
-          isSaving: prev[result.assetId]?.isSaving ?? false,
+          isDirty: prev[result.folderId]?.isDirty ?? false,
+          isSaving: prev[result.folderId]?.isSaving ?? false,
           error: undefined,
         },
       }));
@@ -445,23 +463,27 @@ const AppContent: React.FC = () => {
       try {
         const [metaPart, base64Part] = result.previewUrl.split(',');
         const mimeType = metaPart.split(':')[1]?.split(';')[0] ?? 'image/png';
+        console.log('Generating tags with mimeType:', mimeType);
+
         const tags = await generateTagsForImage({ data: base64Part, mimeType }, language);
-        handleTagsChange(result.assetId, tags);
+        console.log('Generated tags:', tags);
+
+        handleFolderTagsChange(result.folderId, tags);
       } catch (error) {
         console.error('Failed to generate tags:', error);
-        setTagsByResult((prev) => ({
+        setFolderTags((prev) => ({
           ...prev,
-          [result.assetId]: {
-            tags: prev[result.assetId]?.tags ?? [],
+          [result.folderId]: {
+            tags: prev[result.folderId]?.tags ?? [],
             isLoading: false,
-            isDirty: prev[result.assetId]?.isDirty ?? false,
-            isSaving: prev[result.assetId]?.isSaving ?? false,
-            error: prev[result.assetId]?.error,
+            isDirty: prev[result.folderId]?.isDirty ?? false,
+            isSaving: prev[result.folderId]?.isSaving ?? false,
+            error: error instanceof Error ? error.message : 'Tag generation failed',
           },
         }));
       }
     },
-    [language, handleTagsChange]
+    [language, handleFolderTagsChange, libraryFolders, folderTags]
   );
 
   useEffect(() => {
@@ -480,22 +502,48 @@ const AppContent: React.FC = () => {
   }, [appState, activeResultIndex, handleColorExtraction]);
 
   useEffect(() => {
+    console.log('Tag generation useEffect triggered');
+
     if (appState.status !== AppStatus.SUCCESS) {
+      console.log('App state not SUCCESS, skipping tag generation');
       return;
     }
 
     const currentResult = appState.results[activeResultIndex];
     if (!currentResult) {
+      console.log('No current result, skipping tag generation');
       return;
     }
 
-    const assetId = currentResult.asset.id;
-    if (tagsByResult[assetId]) {
+    const folderId = currentResult.asset.groupId;
+    console.log('Current result folderId:', folderId);
+
+    if (!folderId) {
+      console.log('No folderId, skipping tag generation');
       return;
     }
 
-    handleTagGeneration({ previewUrl: currentResult.previewUrl, assetId });
-  }, [appState, activeResultIndex, handleTagGeneration, tagsByResult]);
+    // 폴더에 이미 태그가 있으면 생성하지 않음
+    const existingFolder = libraryFolders.find(f => f.id === folderId);
+    console.log('Existing folder check:', existingFolder);
+
+    if (existingFolder && existingFolder.tags.length > 0) {
+      console.log('Folder already has tags, skipping tag generation');
+      return;
+    }
+
+    // 이미 태그 생성 중이거나 완료된 폴더는 스킵
+    const currentFolderTags = folderTags[folderId];
+    console.log('Current folder tags state:', currentFolderTags);
+
+    if (currentFolderTags && (currentFolderTags.isLoading || currentFolderTags.tags.length > 0)) {
+      console.log('Tag generation already in progress or completed, skipping');
+      return;
+    }
+
+    console.log('All checks passed, starting tag generation');
+    handleFolderTagGeneration({ previewUrl: currentResult.previewUrl, folderId });
+  }, [appState, activeResultIndex, handleFolderTagGeneration, folderTags, libraryFolders]);
 
   const handleInitialGenerate = useCallback(async () => {
     if (!baseImage || !styleImage) {
@@ -548,7 +596,21 @@ const AppContent: React.FC = () => {
       syncLibraryWithAsset(backendResponse.asset, backendResponse.group);
       setAppState({ status: AppStatus.SUCCESS, results: [generatedResult] });
       setActiveResultIndex(0);
-      setTagsByResult({});
+
+      // 폴더 태그 초기화 (새 폴더인 경우만)
+      const existingFolder = libraryFolders.find(f => f.id === backendResponse.group.id);
+      if (!existingFolder || existingFolder.tags.length === 0) {
+        setFolderTags(prev => ({
+          ...prev,
+          [backendResponse.group.id]: {
+            tags: [],
+            isLoading: false,
+            isDirty: false,
+            isSaving: false,
+            error: undefined,
+          }
+        }));
+      }
     } catch (error) {
       console.error(error);
       if (error instanceof Error && error.message === 'QUOTA_EXHAUSTED') {
@@ -653,6 +715,12 @@ const AppContent: React.FC = () => {
       setSelectedFolderId(folderId);
       setFolderDetailLoading(true);
       setFolderDetailError(null);
+
+      // URL 변경
+      const folderPath = `/library/folder/${folderId}`;
+      if (typeof window !== 'undefined') {
+        window.history.pushState({ tab: 'library', folderId }, '', folderPath);
+      }
 
       try {
         const { folder, assets } = await fetchLibraryFolderDetail(session.access_token, folderId);
@@ -782,9 +850,19 @@ const AppContent: React.FC = () => {
 
     const handlePopState = () => {
       const nextTab = resolveTabFromLocation(window.location.pathname);
+      const folderId = extractFolderIdFromPath(window.location.pathname);
+
       setActiveTab(nextTab);
-      if (nextTab !== 'library') {
+
+      if (nextTab === 'library' && folderId) {
+        setSelectedFolderId(folderId);
+        setFolderDetailError(null);
+      } else if (nextTab !== 'library') {
         resetLibraryView();
+      } else {
+        // library 탭이지만 폴더 ID가 없는 경우 (라이브러리 메인)
+        setSelectedFolderId(null);
+        setFolderDetailError(null);
       }
     };
 
@@ -1017,82 +1095,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleEditImageTags = async (image: LibraryImage) => {
-    if (!session?.access_token) {
-      return;
-    }
-
-    const raw = window.prompt('태그를 쉼표(,)로 구분하여 입력하세요.', image.tags.join(', '));
-    if (raw === null) {
-      return;
-    }
-
-    const parsed = raw
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-
-    const previousTags = image.tags;
-    const previousFolder = libraryFolders.find((folder) => folder.id === image.folderId);
-    const previousFolderTags = previousFolder?.tags ?? [];
-    setTagsByResult((prev) => ({
-      ...prev,
-      [image.id]: {
-        tags: parsed,
-        isLoading: false,
-        isDirty: false,
-        isSaving: false,
-        error: undefined,
-      },
-    }));
-    let updatedImages: LibraryImage[] = [];
-    setLibraryImages((prev) => {
-      const next = prev.map((item) => (item.id === image.id ? { ...item, tags: parsed } : item));
-      updatedImages = next;
-      return next;
-    });
-
-    setLibraryFolders((prev) =>
-      prev.map((folder) => {
-        if (folder.id !== image.folderId) {
-          return folder;
-        }
-        const aggregatedTags = Array.from(
-          new Set(
-            updatedImages
-              .filter((item) => item.folderId === image.folderId)
-              .flatMap((item) => item.tags)
-          )
-        );
-        return { ...folder, tags: aggregatedTags };
-      })
-    );
-
-    try {
-      await updateAsset(session.access_token, image.id, { tags: parsed });
-    } catch (error) {
-      console.error('이미지 태그 수정 실패:', error);
-      setTagsByResult((prev) => ({
-        ...prev,
-        [image.id]: {
-          tags: previousTags,
-          isLoading: false,
-          isDirty: false,
-          isSaving: false,
-          error: undefined,
-        },
-      }));
-      setLibraryImages((prev) =>
-        prev.map((item) => (item.id === image.id ? { ...item, tags: previousTags } : item))
-      );
-      setLibraryFolders((prev) =>
-        prev.map((folder) =>
-          folder.id === image.folderId ? { ...folder, tags: previousFolderTags } : folder
-        )
-      );
-      alert('이미지 태그를 수정하지 못했습니다. 잠시 후 다시 시도해주세요.');
-    }
-  };
 
   const handlePrivacyToggle = () => {
     setProfile((prev) => ({ ...prev, isPrivate: !prev.isPrivate }));
@@ -1114,12 +1116,32 @@ const AppContent: React.FC = () => {
 
   const renderGeneratorView = () => {
     const activeResult = appState.status === AppStatus.SUCCESS ? appState.results[activeResultIndex] : null;
-    const activeTagsState = activeResult ? tagsByResult[activeResult.asset.id] : undefined;
-    const activeTags = activeTagsState?.tags ?? activeResult?.asset.tags ?? [];
-    const activeTagsLoading = activeTagsState?.isLoading ?? false;
-    const activeTagsDirty = activeTagsState?.isDirty ?? false;
-    const activeTagsSaving = activeTagsState?.isSaving ?? false;
-    const activeTagsError = activeTagsState?.error ?? null;
+    const activeFolderId = activeResult?.asset.groupId;
+    const activeFolderTagsState = activeFolderId ? folderTags[activeFolderId] : undefined;
+    const existingFolder = activeFolderId ? libraryFolders.find(f => f.id === activeFolderId) : null;
+
+    console.log('renderGeneratorView debug:', {
+      activeResult: !!activeResult,
+      activeFolderId,
+      activeFolderTagsState,
+      existingFolder: !!existingFolder,
+      existingFolderTags: existingFolder?.tags,
+    });
+
+    // 폴더 태그 우선, 없으면 기존 폴더 태그, 마지막으로 빈 배열
+    const activeTags = activeFolderTagsState?.tags ?? existingFolder?.tags ?? [];
+    const activeTagsLoading = activeFolderTagsState?.isLoading ?? false;
+    const activeTagsDirty = activeFolderTagsState?.isDirty ?? false;
+    const activeTagsSaving = activeFolderTagsState?.isSaving ?? false;
+    const activeTagsError = activeFolderTagsState?.error ?? null;
+
+    console.log('Tags display state:', {
+      activeTags,
+      activeTagsLoading,
+      activeTagsDirty,
+      activeTagsSaving,
+      activeTagsError,
+    });
 
     return (
       <div className="pb-24">
@@ -1227,12 +1249,12 @@ const AppContent: React.FC = () => {
             isSavingTags={activeTagsSaving}
             saveError={activeTagsError}
             onTagsChange={(newTags) => {
-              if (!activeResult) return;
-              handleTagsChange(activeResult.asset.id, newTags);
+              if (!activeFolderId) return;
+              handleFolderTagsChange(activeFolderId, newTags);
             }}
             onSaveTags={() => {
-              if (!activeResult) return;
-              void handleSaveTags(activeResult.asset.id);
+              if (!activeFolderId) return;
+              void handleSaveFolderTags(activeFolderId);
             }}
           />
         </div>
@@ -1322,6 +1344,10 @@ const AppContent: React.FC = () => {
             onBack={() => {
               setSelectedFolderId(null);
               setFolderDetailError(null);
+              // URL을 라이브러리 메인으로 변경
+              if (typeof window !== 'undefined') {
+                window.history.pushState({ tab: 'library' }, '', '/library');
+              }
             }}
             onDeleteFolder={() => handleDeleteFolder(selectedFolder.id)}
             onRenameFolder={() => handleRenameFolder(selectedFolder)}
@@ -1329,7 +1355,6 @@ const AppContent: React.FC = () => {
             onShareImage={(imageId) => openCreatePost(selectedFolder.id, imageId)}
             onDeleteImage={handleDeleteImage}
             onRenameImage={handleRenameImage}
-            onEditImageTags={handleEditImageTags}
           />
         )
       )}

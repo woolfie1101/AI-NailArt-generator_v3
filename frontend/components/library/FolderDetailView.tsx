@@ -14,7 +14,6 @@ interface FolderDetailProps {
   onShareImage: (imageId: string) => void;
   onDeleteImage: (imageId: string) => void;
   onRenameImage: (image: LibraryImage) => void;
-  onEditImageTags: (image: LibraryImage) => void;
 }
 
 export const FolderDetailView: React.FC<FolderDetailProps> = ({
@@ -29,7 +28,6 @@ export const FolderDetailView: React.FC<FolderDetailProps> = ({
   onShareImage,
   onDeleteImage,
   onRenameImage,
-  onEditImageTags,
 }) => {
   return (
     <div className="min-h-screen bg-[#F8F8F8] pb-24">
@@ -54,7 +52,13 @@ export const FolderDetailView: React.FC<FolderDetailProps> = ({
                 <Edit2 className="h-3.5 w-3.5" />
               </button>
             </div>
-            <p className="text-sm text-gray-500">{createdAt}</p>
+            <p className="text-sm text-gray-500">{new Date(createdAt).toLocaleDateString('ko-KR', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</p>
             <div className="flex flex-wrap gap-2">
               {tags.map((tag) => (
                 <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-gray-600">#{tag}</span>
@@ -89,12 +93,13 @@ export const FolderDetailView: React.FC<FolderDetailProps> = ({
                 <figcaption className="space-y-3 px-4 py-4">
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{image.name}</p>
-                    <p className="text-xs text-gray-500">{image.createdAt}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {image.tags.map((tag) => (
-                      <span key={tag} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-gray-600">#{tag}</span>
-                    ))}
+                    <p className="text-xs text-gray-500">{new Date(image.createdAt).toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}</p>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex flex-wrap gap-2">
@@ -118,13 +123,6 @@ export const FolderDetailView: React.FC<FolderDetailProps> = ({
                         className="flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
                       >
                         <Edit2 className="h-3.5 w-3.5" /> 이름 수정
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onEditImageTags(image)}
-                        className="flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" /> 태그 수정
                       </button>
                     </div>
                     <button

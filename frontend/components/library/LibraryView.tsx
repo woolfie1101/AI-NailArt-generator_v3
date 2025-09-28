@@ -57,15 +57,34 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   const sortedFolders = useMemo(() => {
     const list = [...filteredFolders];
+
     switch (sortBy) {
       case 'latest':
-        return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        return list.sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA; // 최신이 먼저 (내림차순)
+        });
       case 'oldest':
-        return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        return list.sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateA - dateB; // 오래된 것이 먼저 (오름차순)
+        });
       case 'name':
         return list.sort((a, b) => a.name.localeCompare(b.name));
       case 'favorites':
-        return list.sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite));
+        return list.sort((a, b) => {
+          // 즐겨찾기 우선, 그 다음 최신순
+          if (a.isFavorite !== b.isFavorite) {
+            return Number(b.isFavorite) - Number(a.isFavorite);
+          }
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+      default:
+        return list;
     }
   }, [filteredFolders, sortBy]);
 

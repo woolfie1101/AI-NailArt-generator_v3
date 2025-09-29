@@ -1,5 +1,5 @@
 import type { LibraryFolder, LibraryImage } from '../types';
-import { BACKEND_URL } from './backendService';
+import { getBackendUrl } from './backendService';
 
 interface LibraryFoldersApiResponse {
   success: boolean;
@@ -79,7 +79,7 @@ function authHeaders(accessToken: string) {
 export async function fetchLibraryFolders(accessToken: string): Promise<LibraryFolder[]> {
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_URL}/api/library/folders`, {
+    response = await fetch(`${getBackendUrl()}/api/library/folders`, {
       headers: authHeaders(accessToken),
     });
   } catch (error) {
@@ -111,7 +111,7 @@ export async function fetchLibraryFolders(accessToken: string): Promise<LibraryF
 export async function fetchLibraryFolderDetail(accessToken: string, folderId: string) {
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_URL}/api/library/folders/${folderId}`, {
+    response = await fetch(`${getBackendUrl()}/api/library/folders/${folderId}`, {
       headers: authHeaders(accessToken),
     });
   } catch (error) {
@@ -159,7 +159,7 @@ export async function fetchLibraryFolderDetail(accessToken: string, folderId: st
 export async function toggleFavoriteFolder(accessToken: string, folderId: string, isFavorite: boolean) {
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_URL}/api/library/folders/${folderId}`, {
+    response = await fetch(`${getBackendUrl()}/api/library/folders/${folderId}`, {
       method: 'PATCH',
       headers: {
         ...authHeaders(accessToken),
@@ -180,7 +180,7 @@ export async function toggleFavoriteFolder(accessToken: string, folderId: string
 export async function deleteFolder(accessToken: string, folderId: string) {
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_URL}/api/library/folders/${folderId}`, {
+    response = await fetch(`${getBackendUrl()}/api/library/folders/${folderId}`, {
       method: 'DELETE',
       headers: authHeaders(accessToken),
     });
@@ -201,7 +201,7 @@ export async function updateFolder(
 ) {
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_URL}/api/library/folders/${folderId}`, {
+    response = await fetch(`${getBackendUrl()}/api/library/folders/${folderId}`, {
       method: 'PATCH',
       headers: {
         ...authHeaders(accessToken),
@@ -222,7 +222,7 @@ export async function updateFolder(
 export async function deleteAsset(accessToken: string, assetId: string) {
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_URL}/api/library/assets/${assetId}`, {
+    response = await fetch(`${getBackendUrl()}/api/library/assets/${assetId}`, {
       method: 'DELETE',
       headers: authHeaders(accessToken),
     });
@@ -245,7 +245,7 @@ export async function updateAsset(
     // tags only update route
     let response: Response;
     try {
-      response = await fetch(`${BACKEND_URL}/api/library/assets/${assetId}/tags`, {
+      response = await fetch(`${getBackendUrl()}/api/library/assets/${assetId}/tags`, {
         method: 'POST',
         headers: {
           ...authHeaders(accessToken),
@@ -268,7 +268,7 @@ export async function updateAsset(
 
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_URL}/api/library/assets/${assetId}`, {
+    response = await fetch(`${getBackendUrl()}/api/library/assets/${assetId}`, {
       method: 'PATCH',
       headers: {
         ...authHeaders(accessToken),

@@ -9,43 +9,37 @@ AI를 활용한 네일 아트 디자인 생성 애플리케이션입니다. Goog
 
 ## 프로젝트 구조
 
+⚠️ **통합 완료**: 프론트엔드와 백엔드가 하나의 Next.js 프로젝트로 통합되었습니다.
+
 ```
 ai-nail-art-generator/
-├── frontend/                         # 프론트엔드 (React + Vite)
+├── backend/                          # 통합된 Next.js 풀스택 애플리케이션
 │   ├── src/
+│   │   ├── app/                      # Next.js App Router
+│   │   │   ├── api/                  # API 라우트
+│   │   │   ├── globals.css           # 글로벌 스타일
+│   │   │   ├── layout.tsx            # 루트 레이아웃
+│   │   │   └── page.tsx              # 홈페이지
 │   │   ├── components/               # React 컴포넌트
 │   │   ├── context/                  # React Context (인증 등)
 │   │   ├── hooks/                    # 커스텀 훅
-│   │   ├── lib/                      # 유틸리티 라이브러리
-│   │   ├── services/                 # API 서비스
-│   │   └── utils/                    # 유틸리티 함수
-│   ├── public/                       # 정적 파일
-│   └── package.json
-├── backend/                          # 백엔드 (Next.js API)
-│   ├── src/
-│   │   ├── app/api/                  # API 라우트
 │   │   ├── lib/                      # 라이브러리 (Supabase 등)
+│   │   ├── services/                 # API 서비스
 │   │   ├── types/                    # TypeScript 타입 정의
 │   │   └── utils/                    # 유틸리티 함수
+│   ├── public/                       # 정적 파일 (파비콘 등)
+│   ├── App.tsx                       # 메인 React 앱
+│   ├── .env                          # 배포용 환경 변수
+│   ├── .env.local                    # 로컬 개발용 환경 변수
 │   └── package.json
+├── Dockerfile                        # Docker 배포 설정
+├── deploy.sh                         # 배포 스크립트
 └── README.md
 ```
 
-## 프론트엔드 (frontend)
+## 통합된 Next.js 애플리케이션
 
-React + Vite로 구성된 프론트엔드 애플리케이션입니다.
-
-### 실행 방법
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## 백엔드 (backend)
-
-Next.js API Routes로 구성된 백엔드 서버입니다.
+프론트엔드와 백엔드가 하나의 Next.js 프로젝트로 통합되어 있습니다.
 
 ### 기능
 
@@ -56,34 +50,73 @@ Next.js API Routes로 구성된 백엔드 서버입니다.
 
 ### 환경 설정
 
-1. `.env.local` 파일을 생성하고 다음 내용을 추가하세요:
+#### 로컬 개발용 환경 변수
+
+`backend/.env.local` 파일을 생성하고 다음 내용을 추가하세요:
 
 ```env
-# AI API Keys
-GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
+# Google Gemini AI API Key
+NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
 
-# Server Configuration
-PORT=3001
+# Supabase 설정
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# 서버 설정
 NODE_ENV=development
 
-# File Upload Configuration
+# 파일 업로드 설정
 MAX_FILE_SIZE=10485760
 UPLOAD_DIR=./uploads
 ```
 
-2. Google Gemini API 키를 발급받아 설정하세요:
+#### 배포용 환경 변수
+
+`backend/.env` 파일을 생성하고 다음 내용을 추가하세요:
+
+```env
+# Google Gemini AI API Key
+NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
+
+# Supabase 설정
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# 프로덕션 설정
+NODE_ENV=production
+
+# 파일 업로드 설정
+MAX_FILE_SIZE=10485760
+UPLOAD_DIR=./uploads
+```
+
+#### API 키 발급 방법
+
+1. **Google Gemini API 키**:
    - [Google AI Studio](https://makersuite.google.com/app/apikey)에서 API 키 발급
 
-### 실행 방법
+2. **Supabase 설정**:
+   - [Supabase 대시보드](https://supabase.com/dashboard)에서 프로젝트 생성
+   - Settings > API에서 URL과 키 복사
+
+### 로컬 개발 실행 방법
 
 ```bash
+# 1. 프로젝트 루트에서 backend 폴더로 이동
 cd backend
+
+# 2. 의존성 설치
 npm install
+
+# 3. 환경 변수 설정 (.env.local 파일 생성 후 위의 환경 변수 입력)
+
+# 4. 개발 서버 실행
 npm run dev
 ```
 
-백엔드 서버는 `http://localhost:3001`에서 실행됩니다.
+애플리케이션은 `http://localhost:3000`에서 실행됩니다.
 
 ### API 엔드포인트
 
@@ -167,32 +200,156 @@ AI를 활용하여 네일 아트 디자인을 생성합니다.
 
 ## 개발 가이드
 
-### 프론트엔드 개발
-- React + TypeScript + Vite 환경
-- 다국어 지원 (한국어/영어)
-- 반응형 디자인
+### 통합 개발 환경
+- **프레임워크**: Next.js 15 (App Router)
+- **언어**: TypeScript
+- **스타일링**: Tailwind CSS
+- **인증**: Supabase Auth (Google OAuth)
+- **데이터베이스**: Supabase PostgreSQL
+- **AI**: Google Gemini API
+- **UI 컴포넌트**: React + Lucide React
+- **이미지 처리**: Sharp
+- **다국어 지원**: 한국어/영어
+- **반응형 디자인**: 모바일 최적화
 
-### 백엔드 개발
-- Next.js API Routes
-- TypeScript
-- Google Gemini AI 연동
-- 이미지 처리 (Sharp)
-- 파일 업로드 (Multer)
+## 배포 가이드
 
-## 배포
+### Google Cloud Run 배포
 
-### 프론트엔드
+#### 1. 사전 준비
+
 ```bash
-cd AI-nail-art-generator-version-2
-npm run build
+# Google Cloud CLI 설치 및 로그인
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+# Docker 및 Cloud Run 서비스 활성화
+gcloud services enable run.googleapis.com
+gcloud services enable cloudbuild.googleapis.com
 ```
 
-### 백엔드
+#### 2. Docker 이미지 빌드
+
 ```bash
-cd backend
-npm run build
-npm start
+# 프로젝트 루트에서 실행
+# AMD64 플랫폼용 이미지 빌드 (Cloud Run 호환성)
+docker buildx build --platform linux/amd64 -t ai-nail-art-generator .
 ```
+
+#### 3. 이미지 태그 및 푸시
+
+```bash
+# Google Container Registry에 태그
+docker tag ai-nail-art-generator gcr.io/YOUR_PROJECT_ID/ai-nail-art-generator
+
+# 이미지 푸시
+docker push gcr.io/YOUR_PROJECT_ID/ai-nail-art-generator
+```
+
+#### 4. Cloud Run 배포
+
+```bash
+# Cloud Run 서비스 배포
+gcloud run deploy ai-nail-art-generator \
+  --image gcr.io/YOUR_PROJECT_ID/ai-nail-art-generator \
+  --platform managed \
+  --region asia-northeast3 \
+  --allow-unauthenticated \
+  --memory 1Gi \
+  --cpu 1 \
+  --timeout 300 \
+  --max-instances 10
+```
+
+#### 5. 환경 변수 설정
+
+배포 전에 다음 환경 변수들을 설정해야 합니다:
+
+```bash
+# Supabase 설정
+export NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+export NEXT_PUBLIC_SUPABASE_ANON_KEY="your_supabase_anon_key"
+export SUPABASE_SERVICE_ROLE_KEY="your_supabase_service_role_key"
+
+# Google AI 설정
+export GOOGLE_AI_API_KEY="your_google_ai_api_key"
+
+# Google Cloud 프로젝트 설정
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+```
+
+**중요한 Supabase 설정:**
+
+1. **Supabase 프로젝트 생성**: [Supabase](https://supabase.com)에서 새 프로젝트를 생성하세요.
+
+2. **OAuth 리다이렉트 URL 설정**: Supabase 대시보드 > Authentication > URL Configuration에서 다음 URL들을 추가하세요:
+   - `https://your-cloud-run-url.run.app/home`
+   - `https://your-cloud-run-url.run.app/auth/callback`
+   - `http://localhost:3001/home` (로컬 개발용)
+
+3. **Google OAuth 설정**: Supabase 대시보드 > Authentication > Providers > Google에서 Google OAuth를 활성화하고 클라이언트 ID와 시크릿을 설정하세요.
+
+4. **데이터베이스 마이그레이션**: `supabase/migrations/` 폴더의 SQL 파일을 Supabase에서 실행하세요.
+
+배포 스크립트가 자동으로 환경 변수를 Cloud Run에 설정합니다.
+
+### 코드 수정 후 재배포 방법
+
+코드를 수정한 후 다시 배포하려면 다음 단계를 따르세요:
+
+```bash
+# 1. Docker 이미지 재빌드
+docker buildx build --platform linux/amd64 -t ai-nail-art-generator .
+
+# 2. 새 버전으로 태그 (선택사항 - 버전 관리용)
+docker tag ai-nail-art-generator gcr.io/YOUR_PROJECT_ID/ai-nail-art-generator:v1.1
+
+# 3. 이미지 푸시
+docker push gcr.io/YOUR_PROJECT_ID/ai-nail-art-generator
+# 또는 버전 태그 사용시
+# docker push gcr.io/YOUR_PROJECT_ID/ai-nail-art-generator:v1.1
+
+# 4. Cloud Run 서비스 업데이트
+gcloud run deploy ai-nail-art-generator \
+  --image gcr.io/YOUR_PROJECT_ID/ai-nail-art-generator \
+  --platform managed \
+  --region asia-northeast3
+```
+
+### 자동 배포 스크립트
+
+빠른 재배포를 위해 `deploy.sh` 스크립트를 사용할 수 있습니다:
+
+```bash
+# 실행 권한 부여
+chmod +x deploy.sh
+
+# 배포 실행
+./deploy.sh
+```
+
+### 배포 후 확인사항
+
+1. **서비스 상태 확인**:
+   ```bash
+   gcloud run services describe ai-nail-art-generator --region asia-northeast3
+   ```
+
+2. **로그 확인**:
+   ```bash
+   gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=ai-nail-art-generator" --limit 50
+   ```
+
+3. **브라우저에서 접속 테스트**:
+   - 배포된 URL로 접속하여 기능 테스트
+   - Google OAuth 로그인 테스트
+   - AI 이미지 생성 기능 테스트
+
+### 환경별 설정
+
+- **개발 환경**: `npm run dev` (localhost:3000)
+- **프로덕션 환경**: Cloud Run (HTTPS 자동 제공)
+- **환경 변수**: 개발용 `.env.local`, 배포용 `.env`
 
 ## 라이선스
 

@@ -577,27 +577,92 @@ export type CompositeTypes<
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// 환경 변수 가져오기 (fallback 포함)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 
+  (typeof window !== 'undefined' ? (window as any).__SUPABASE_URL__ : undefined);
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+  (typeof window !== 'undefined' ? (window as any).__SUPABASE_ANON_KEY__ : undefined);
+
+console.log('🔧 Supabase 환경 변수 확인:', {
+  url: supabaseUrl ? '설정됨' : '없음',
+  key: supabaseAnonKey ? '설정됨' : '없음',
+  isServer: typeof window === 'undefined'
+});
 
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Supabase 환경 변수가 설정되지 않았습니다:', {
+    url: supabaseUrl,
+    key: supabaseAnonKey ? '설정됨' : '없음'
+  });
   throw new Error('Supabase 환경 변수가 설정되지 않았습니다.');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Custom storage implementation for better debugging
+const customStorage = {
+  getItem: (key: string) => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const value = window.localStorage.getItem(key);
+      console.log('🔍 Storage getItem:', key, value ? 'found' : 'not found');
+      return value;
+    } catch (error) {
+      console.error('❌ Storage getItem error:', error);
+      return null;
+    }
+  },
+  setItem: (key: string, value: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(key, value);
+      console.log('✅ Storage setItem:', key, 'saved');
+    } catch (error) {
+      console.error('❌ Storage setItem error:', error);
+    }
+  },
+  removeItem: (key: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.removeItem(key);
+      console.log('🗑️ Storage removeItem:', key);
+    } catch (error) {
+      console.error('❌ Storage removeItem error:', error);
+    }
+  }
+};
 
-// Admin client for server-side operations
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Client-side Supabase client
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    storage: customStorage,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    debug: process.env.NODE_ENV === 'development'
+  }
+});
 
-if (!supabaseServiceKey) {
-  console.warn('SUPABASE_SERVICE_ROLE_KEY not found. Admin operations will not work.');
+// Server-side admin client - only available on server
+export function createSupabaseAdmin() {
+  // Only create admin client on server side
+  if (typeof window !== 'undefined') {
+    return null; // Return null on client side
+  }
+
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseServiceKey) {
+    console.warn('SUPABASE_SERVICE_ROLE_KEY not found. Admin operations will not work.');
+    return null;
+  }
+
+  return createClient<Database>(supabaseUrl!, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
 }
 
-export const supabaseAdmin = supabaseServiceKey
-  ? createClient<Database>(supabaseUrl!, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-  : null;
+// For backward compatibility
+export const supabaseAdmin = typeof window === 'undefined' ? createSupabaseAdmin() : null;

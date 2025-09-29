@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export GOOGLE_CLOUD_PROJECT=gen-lang-client-0458093252)",
+      "Bash(docker buildx build:*)",
+      "Bash(curl:*)",
+      "Bash(cp:*)",
+      "Bash(gcloud run deploy:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

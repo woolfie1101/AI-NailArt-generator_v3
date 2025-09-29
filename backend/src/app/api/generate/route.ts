@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { authenticateRequest } from '@/utils/auth';
-import { supabaseAdmin } from '@/lib/supabase';
+import { createSupabaseAdmin } from '@/lib/supabase';
 import { AIService } from '@/utils/aiService';
 import { ImageProcessor } from '@/utils/imageProcessor';
 import { uploadImageToStorage, createSignedUrl } from '@/utils/storage';
@@ -43,6 +43,12 @@ function normalizeBase64(payload?: ImagePayload | null): ImagePayload | null {
 }
 
 async function ensureGroup(userId: string, groupId?: string, desiredName?: string) {
+  const supabaseAdmin = createSupabaseAdmin();
+
+  if (!supabaseAdmin) {
+    throw new Error('서버 설정 오류가 발생했습니다.');
+  }
+
   if (groupId) {
     const { data, error } = await supabaseAdmin
       .from('generation_groups')
@@ -113,6 +119,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { user } = auth;
+
+  const supabaseAdmin = createSupabaseAdmin();
+
+  if (!supabaseAdmin) {
+    return NextResponse.json({ success: false, error: '서버 설정 오류가 발생했습니다.' }, { status: 500 });
+  }
 
   try {
     const payload = (await request.json()) as GenerateRequest;

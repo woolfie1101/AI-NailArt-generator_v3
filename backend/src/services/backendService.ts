@@ -1,6 +1,12 @@
 import type { ImageData } from '../types';
 
-export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+// API 호출할 때마다 동적으로 URL 결정
+export const getBackendUrl = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+};
 
 export interface UploadedAsset {
   id: string;
@@ -66,7 +72,7 @@ export class BackendService {
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    const response = await fetch(`${BACKEND_URL}/api/upload`, {
+    const response = await fetch(`${getBackendUrl()}/api/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -87,7 +93,7 @@ export class BackendService {
       throw new Error('인증 토큰이 필요합니다.');
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/generate`, {
+    const response = await fetch(`${getBackendUrl()}/api/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -123,7 +129,7 @@ export class BackendService {
     if (category) params.append('category', category);
     if (limit) params.append('limit', limit.toString());
 
-    const response = await fetch(`${BACKEND_URL}/api/inspiration?${params}`);
+    const response = await fetch(`${getBackendUrl()}/api/inspiration?${params}`);
     
     if (!response.ok) {
       const error = await response.json();
@@ -138,7 +144,7 @@ export class BackendService {
    */
   static async checkHealth(): Promise<boolean> {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/health`);
+      const response = await fetch(`${getBackendUrl()}/api/health`);
       const data = await response.json();
       return data.status === 'healthy';
     } catch (error) {

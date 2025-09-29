@@ -40,9 +40,10 @@ import { AppStatus } from './src/types';
 import { useTranslations } from './src/hooks/useTranslations';
 import { translations } from './src/lib/i18n/translations';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { DebugPanel } from './src/components/DebugPanel';
 
 const TAB_PATHS: Record<BottomNavTab, string> = {
-  home: '/',
+  home: '/home',
   create: '/create',
   library: '/library',
   profile: '/profile',
@@ -115,21 +116,35 @@ const SAMPLE_PROFILE: ProfileSummary = {
   isPrivate: false,
 };
 
-const AppContent: React.FC = () => {
+// 로그인하지 않은 사용자를 위한 컴포넌트
+const UnauthenticatedApp: React.FC = () => {
+  const { user, loading: authLoading, session } = useAuth();
+  
+  console.log('🔍 사용자 로그인 상태:', { user: !!user, session: !!session, loading: authLoading });
+  
+  return (
+    <div className="min-h-screen font-sans text-gray-800">
+      <Header />
+      <main className="container mx-auto px-4 py-12">
+        <LandingPage />
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+// 로그인한 사용자를 위한 메인 앱 컴포넌트
+const AuthenticatedApp: React.FC = () => {
   const { t, language } = useTranslations();
   const { user, loading: authLoading, session } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<BottomNavTab>(() =>
-    typeof window === 'undefined' ? 'home' : resolveTabFromLocation(window.location.pathname)
-  );
+  const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>(SAMPLE_FEED_POSTS);
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [profile, setProfile] = useState<ProfileSummary>(SAMPLE_PROFILE);
   const [libraryFolders, setLibraryFolders] = useState<LibraryFolder[]>([]);
   const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() =>
-    typeof window === 'undefined' ? null : extractFolderIdFromPath(window.location.pathname)
-  );
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [createPostContext, setCreatePostContext] = useState<{ open: boolean; folderId: string | null; imageId: string | null }>({ open: false, folderId: null, imageId: null });
   const [activeGroup, setActiveGroup] = useState<{ id: string; name: string } | null>(null);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -172,6 +187,8 @@ const AppContent: React.FC = () => {
     },
     []
   );
+
+  // 리다이렉트 로직 제거 - 각 URL에서 해당 컨텐츠 바로 표시
 
   useEffect(() => {
     if (!session?.access_token) {
@@ -499,7 +516,7 @@ const AppContent: React.FC = () => {
     }
 
     handleColorExtraction(currentResult.previewUrl);
-  }, [appState, activeResultIndex, handleColorExtraction]);
+  }, [appState, activeResultIndex]);
 
   useEffect(() => {
     console.log('Tag generation useEffect triggered');
@@ -543,7 +560,7 @@ const AppContent: React.FC = () => {
 
     console.log('All checks passed, starting tag generation');
     handleFolderTagGeneration({ previewUrl: currentResult.previewUrl, folderId });
-  }, [appState, activeResultIndex, handleFolderTagGeneration, folderTags, libraryFolders]);
+  }, [appState, activeResultIndex, folderTags, libraryFolders]);
 
   const handleInitialGenerate = useCallback(async () => {
     if (!baseImage || !styleImage) {
@@ -870,13 +887,17 @@ const AppContent: React.FC = () => {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [resetLibraryView]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
     const initialTab = resolveTabFromLocation(window.location.pathname);
+    const folderId = extractFolderIdFromPath(window.location.pathname);
+    
+    setActiveTab(initialTab);
+    setSelectedFolderId(folderId);
     window.history.replaceState({ tab: initialTab }, '', TAB_PATHS[initialTab]);
   }, []);
 
@@ -1275,29 +1296,29 @@ const AppContent: React.FC = () => {
     ? libraryImages.filter((image) => image.folderId === selectedFolderId)
     : [];
 
+  // 로딩 중일 때
   if (authLoading) {
+    console.log('🔄 App 로딩 중:', { user: !!user, session: !!session, loading: authLoading });
     return (
-      <div className="min-h-screen font-sans text-gray-800">
-        <Header />
-        <main className="container mx-auto px-4 py-16">
-          <div className="mx-auto max-w-3xl text-center text-gray-600">Loading...</div>
-        </main>
-        <Footer />
+      <div className="min-h-screen font-sans text-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen font-sans text-gray-800">
-        <Header />
-        <main className="container mx-auto px-4 py-12">
-          <LandingPage />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  // OAuth 콜백 처리 - URL에 code가 있으면 홈피드로 리다이렉트
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('code=')) {
+      console.log('🔄 OAuth 콜백 감지, 홈피드로 리다이렉트');
+      // URL에서 code 파라미터 제거하고 홈피드로 리다이렉트
+      const url = new URL(window.location.href);
+      url.searchParams.delete('code');
+      window.history.replaceState({}, '', '/home');
+    }
+  }, []);
 
   return (
     <div className="min-h-screen pb-24 font-sans text-gray-800">
@@ -1394,8 +1415,23 @@ const AppContent: React.FC = () => {
       />
 
       <ErrorModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} message={modalMessage} />
+      
+      <DebugPanel />
     </div>
   );
+};
+
+// 메인 AppContent 컴포넌트 - 조건부 렌더링
+const AppContent: React.FC = () => {
+  const { user, session } = useAuth();
+  
+  // 로그인하지 않은 사용자는 UnauthenticatedApp 렌더링
+  if (!user || !session) {
+    return <UnauthenticatedApp />;
+  }
+  
+  // 로그인한 사용자는 AuthenticatedApp 렌더링
+  return <AuthenticatedApp />;
 };
 
 const App: React.FC = () => (

@@ -13,9 +13,10 @@
     "@supabase/supabase-js": "^2.57.4",
     "clsx": "^2.1.1",
     "lucide-react": "^0.446.0",
-    "react-responsive-masonry": "^2.4.3",
+    "prop-types": "^15.8.1",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "react-responsive-masonry": "^2.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

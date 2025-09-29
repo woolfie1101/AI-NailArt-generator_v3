@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import { loadEnvironmentVariables } from '../lib/envLoader';
 
 interface Profile {
   id: string;
@@ -39,36 +40,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [supabase, setSupabase] = useState<any>(null);
+
+  // 디버깅을 위한 상태 로깅
+  useEffect(() => {
+    console.log('🔍 Auth State:', {
+      user: user?.email || 'null',
+      hasSession: !!session,
+      loading,
+      hasProfile: !!profile,
+      localStorage: typeof window !== 'undefined' ? localStorage.getItem('sb-vplstkgvdbdvladxuvzo-auth-token') : 'server-side'
+    });
+  }, [user, session, loading, profile]);
+
+  // Supabase 클라이언트 초기화
+  useEffect(() => {
+    const initializeSupabase = async () => {
+      try {
+        console.log('🔄 Supabase 클라이언트 초기화 중...');
+        const envVars = await loadEnvironmentVariables();
+        
+        const supabaseClient = createClient(envVars.NEXT_PUBLIC_SUPABASE_URL, envVars.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+          auth: {
+            persistSession: true,
+            storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            flowType: 'pkce',
+            debug: process.env.NODE_ENV === 'development'
+          }
+        });
+        
+        setSupabase(supabaseClient);
+        console.log('✅ Supabase 클라이언트 초기화 완료');
+      } catch (error) {
+        console.error('❌ Supabase 클라이언트 초기화 실패:', error);
+        setLoading(false);
+      }
+    };
+
+    void initializeSupabase();
+  }, []);
 
   useEffect(() => {
+    if (!supabase) return;
+    
     let isMounted = true;
 
     const initializeSession = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
-
-        if (!isMounted) {
+        console.log('🔄 세션 초기화 시작...');
+        
+        // 먼저 기존 세션 확인
+        const { data: existingSession, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('❌ 기존 세션 조회 오류:', sessionError);
+        } else if (existingSession.session) {
+          console.log('✅ 기존 세션 발견:', existingSession.session.user?.email);
+          setSession(existingSession.session);
+          setUser(existingSession.session.user);
+          
+          if (existingSession.session.user) {
+            try {
+              await fetchProfile(existingSession.session.user);
+              console.log('✅ 기존 세션 프로필 로딩 완료');
+            } catch (error) {
+              console.error('❌ 기존 세션 프로필 로딩 실패:', error);
+            }
+          }
+          
+          setLoading(false);
           return;
         }
 
-        if (error) {
-          console.error('세션 조회 오류:', error);
+        // OAuth 콜백 처리 - URL에 code가 있으면 Supabase가 자동으로 처리하도록 함
+        if (typeof window !== 'undefined') {
+          console.log('🔗 Current URL:', window.location.href);
+          console.log('🔗 Hash:', window.location.hash);
+          console.log('🔗 Search:', window.location.search);
+
+          // URL에 code 파라미터가 있으면 OAuth 콜백으로 간주
+          if (window.location.search.includes('code=')) {
+            console.log('🔄 OAuth 콜백 감지 - Supabase가 자동으로 처리하도록 대기');
+            // Supabase가 자동으로 OAuth 콜백을 처리하도록 함
+            // onAuthStateChange에서 처리될 것임
+          }
         }
 
-        const session = data.session;
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          fetchProfile(session.user).catch((error) => {
-            console.error('프로필 로딩 실패:', error);
-          });
-        }
-
+        // 세션이 없는 경우
+        console.log('ℹ️  활성 세션이 없습니다.');
+        setSession(null);
+        setUser(null);
+        setProfile(null);
         setLoading(false);
+
       } catch (error) {
-        console.error('세션 초기화 실패:', error);
+        console.error('❌ 세션 초기화 실패:', error);
         if (isMounted) {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
           setLoading(false);
         }
       }
@@ -78,26 +150,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      console.log('Auth state changed:', event, session?.user?.email || 'No user');
+
       setSession(session);
       setUser(session?.user ?? null);
 
+      // 즉시 로딩 상태 해제
+      console.log('🔄 로딩 상태 해제 (즉시)');
+      setLoading(false);
+
       if (session?.user) {
-        fetchProfile(session.user).catch((error) => {
-          console.error('프로필 로딩 실패:', error);
-        });
-        setLoading(false);
+        // 프로필 로딩은 비동기로 처리
+        setTimeout(async () => {
+          try {
+            if (supabase) {
+              await fetchProfile(session.user);
+              console.log('Auth state change: 프로필 로딩 완료');
+            } else {
+              console.log('Supabase 클라이언트가 없어서 기본 프로필 생성');
+              const fallbackProfile: Profile = {
+                id: session.user.id,
+                email: session.user.email ?? '',
+                full_name: (session.user.user_metadata?.full_name as string | undefined) ?? null,
+                avatar_url: (session.user.user_metadata?.avatar_url as string | undefined) ?? null,
+                subscription_tier: 'free',
+                subscription_status: 'active',
+                subscription_expires_at: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+              setProfile(fallbackProfile);
+            }
+          } catch (error) {
+            console.error('Auth state change: 프로필 로딩 실패:', error);
+            // 프로필 로딩 실패해도 기본 프로필 생성
+            const fallbackProfile: Profile = {
+              id: session.user.id,
+              email: session.user.email ?? '',
+              full_name: (session.user.user_metadata?.full_name as string | undefined) ?? null,
+              avatar_url: (session.user.user_metadata?.avatar_url as string | undefined) ?? null,
+              subscription_tier: 'free',
+              subscription_status: 'active',
+              subscription_expires_at: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            setProfile(fallbackProfile);
+          }
+        }, 0);
       } else {
         setProfile(null);
-        setLoading(false);
       }
     });
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
-  }, []);
+  }, [supabase]);
 
   const fetchProfile = async (authUser: User) => {
     try {
@@ -148,11 +261,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithGoogle = async () => {
+    if (!supabase) {
+      console.error('❌ Supabase 클라이언트가 초기화되지 않았습니다.');
+      return;
+    }
+
     try {
+      // 현재 도메인을 기반으로 리다이렉트 URL 설정
+      const redirectUrl = `${window.location.origin}/home`;
+      console.log('🔗 OAuth 리다이렉트 URL:', redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
@@ -167,6 +293,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    if (!supabase) {
+      console.error('❌ Supabase 클라이언트가 초기화되지 않았습니다.');
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -180,7 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user) return;
+    if (!user || !supabase) return;
 
     try {
       const { data, error } = await supabase

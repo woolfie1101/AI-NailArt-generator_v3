@@ -48,3 +48,19 @@ _Last updated: 2025-09-27_
 ## Follow-up Items
 - [x] `POST /api/generate`가 이미지 생성 직후 업로드 헬퍼를 호출하도록 수정하여 Storage/DB에 자동 저장되도록 연결하기.
 - [x] 프론트엔드 생성 플로우에서 생성 결과를 백엔드 `/api/generate`에 전달해 `groupId`와 함께 저장·동기화하기.
+
+_Last updated: 2025-09-28_
+
+⏺ ## Known Issues to Fix
+- [ ] **Sorting Functionality**: 최신순(latest)/오래된 순(oldest) sorting is not working
+  properly in LibraryView
+    - Location: `frontend/components/library/LibraryView.tsx`
+    - Current Status: Items are not being sorted correctly by creation date
+    - Priority: Medium
+
+ - [ ] **Feed Post Selection Logic**: 피드 게시 이미지 선택 및 순서 기능 구현
+    - 폴더 피드게시 버튼: 폴더내 모든 이미지 다중선택 화면 (기본 선택 없음)
+    - 개별 이미지 피드게시 버튼: 해당 이미지가 기본 선택된 다중선택 화면
+    - 이미지 순서 조정: 선택된 이미지들의 피드 게시 순서 설정 기능
+    - Location: `FolderCard.tsx`, `FolderDetailView.tsx`
+    - Priority: Medium

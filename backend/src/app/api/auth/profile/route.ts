@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { createSupabaseAdmin } from '@/lib/supabase';
 import type { Tables } from '@/lib/types/supabase';
 
 type Profile = Tables<'profiles'>;
 
 export async function GET(request: NextRequest) {
   try {
+    const supabaseAdmin = createSupabaseAdmin();
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: '서버 설정 오류가 발생했습니다.' }, { status: 500 });
+    }
+
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: '인증 토큰이 필요합니다.' }, { status: 401 });
     }
 
     const token = authHeader.split(' ')[1];
-    
+
     // 토큰 검증
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     
@@ -64,6 +70,12 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const supabaseAdmin = createSupabaseAdmin();
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: '서버 설정 오류가 발생했습니다.' }, { status: 500 });
+    }
+
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: '인증 토큰이 필요합니다.' }, { status: 401 });
@@ -71,7 +83,7 @@ export async function PUT(request: NextRequest) {
 
     const token = authHeader.split(' ')[1];
     const { full_name, avatar_url } = await request.json();
-    
+
     // 토큰 검증
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     

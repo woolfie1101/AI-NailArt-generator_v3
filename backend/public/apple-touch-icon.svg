@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" fill="none">
+  <defs>
+    <linearGradient id="appleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B9D;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#A855F7;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10B981;stop-opacity:1" />
+    </linearGradient>
+    <filter id="appleGlow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="180" height="180" rx="40" fill="#000000"/>
+
+  <!-- Gradient background -->
+  <circle cx="90" cy="90" r="70" fill="url(#appleGradient)" opacity="0.15"/>
+
+  <!-- Main nail shape -->
+  <path d="M65 40 C65 30, 75 20, 90 20 C105 20, 115 30, 115 40 L115 130 C115 140, 105 150, 90 150 C75 150, 65 140, 65 130 Z"
+        fill="url(#appleGradient)"
+        filter="url(#appleGlow)"/>
+
+  <!-- Nail art details -->
+  <circle cx="80" cy="60" r="4" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="100" cy="50" r="2" fill="#FFFFFF" opacity="0.6"/>
+  <circle cx="90" cy="85" r="6" fill="#FFFFFF" opacity="0.3"/>
+  <circle cx="85" cy="110" r="3" fill="#FFFFFF" opacity="0.7"/>
+  <circle cx="95" cy="120" r="2" fill="#FFFFFF" opacity="0.5"/>
+
+  <!-- AI sparkle effects -->
+  <g opacity="0.9">
+    <path d="M130 30 L135 40 L145 35 L140 45 L150 50 L140 55 L145 65 L135 60 L130 70 L125 60 L115 65 L120 55 L110 50 L120 45 L115 35 L125 40 Z"
+          fill="#FFD700"/>
+    <path d="M50 120 L52 125 L57 123 L55 128 L60 130 L55 132 L57 137 L52 135 L50 140 L48 135 L43 137 L45 132 L40 130 L45 128 L43 123 L48 125 Z"
+          fill="#FF69B4"/>
+  </g>
+</svg>
